@@ -28,52 +28,79 @@ library(here)
 # Supplement 1: 4D PICTURE Collaborators
 The scientific members of the 4D PICTURE consortium who are not authors on this manuscript. Names and affiliations are as follows:
 
-Gaby Sroczynski^{1,2}, Uwe Siebert^{1,2,3,4}, Roberto Pazo-Cid^{5,6,7}, Lára R. Hallsson^{1,2}, Michel W. Wouters^{8}, Iñaki Alvarez Busto^{5,6,7}, Lennart Koch^{1,2}, Mette Byg Josefsen^{9}, Yassin Engelberts^{10}, Yufeng Liu^{11}, Claudia Cruz Oliveira^{10}, Elfi M. Verheul^{10}, Barbara Perić^{12}, Anne Stiggelbout^{8}, Ida Korfage^{10}, Kasper Frank^{9}, Tamara Wit^{8}, Amara Callistus Nwosu^{13,14}, Ellen Kapiteijn^{15}, Frank Doornkamp^{16}, Judith Rietjens^{10, 17}, Suzan Verberne^{18}, Carlos Romero-Piqueras^{19}
+Gaby Sroczynski$^{1,2}$, Uwe Siebert$^{1,2,3,4}$, Roberto Pazo-Cid$^{5,6,7}$, Lára R. Hallsson$^{1,2}$, Michel W. Wouters$^{8}$, Iñaki Alvarez Busto$^{5,6,7}$, Lennart Koch$^{1,2}$, Mette Byg Josefsen$^{9}$, Yassin Engelberts$^{10}$, Yufeng Liu$^{11}$, Claudia Cruz Oliveira$^{10}$, Elfi M. Verheul$^{10}$, Barbara Perić$^{12}$, Anne Stiggelbout$^{8}$, Ida Korfage$^{10}$, Kasper Frank$^{9}$, Tamara Wit$^{8}$, Amara Callistus Nwosu$^{13,14}$, Ellen Kapiteijn$^{15}$, Frank Doornkamp$^{16}$, Judith Rietjens$^{10, 17}$, Suzan Verberne$^{18}$, Carlos Romero-Piqueras$^{19}$
 
-\begin{enumerate}
-  \item Institute of Public Health, Medical Decision Making and Health Technology Assessment
-  \item Department of Public Health, Health Services Research and Health Technology Assessment, UMIT TIROL – University for Health Sciences and Technology, Hall in Tirol, Austria 
-  \item Center for Health Decision Science and Departments of Epidemiology and Health Policy & Management, Harvard T.H. Chan School of Public Health
-  \item Institute for Technology Assessment, Department of Radiology, Massachusetts General Hospital, Harvard Medical School, Boston, MA, USA
-  \item Department of Medical Oncology, Miguel Servet University Hospital, Facultad de Medicina. Universidad de Zaragoza, Instituto Investigación Sanitaria Aragón, Zaragoza, Spain
-  \item Medical Oncology, Instituto de Investigación Sanitaria de Aragón (IIS-A)
-  \item Hospital Universitario Miguel Servet, Zaragoza, Spain
-  \item Medical Decision Making, Department of Biomedical Data Sciences, Leiden University Medical Center, Leiden, the Netherlands 
-  \item Center for Shared Decision Making Vejle/Lillebaelt University Hospital of Southern Denmark
-  \item Department of Public Health, Erasmus MC, University Medical Center Rotterdam, Rotterdam, the Netherlands
-  \item Department of Linguistics and English Language, Lancaster University, Lancaster, United Kingdom
-  \item Institute of Oncology Ljubljana, Medical faculty Ljubljana, University of Ljubljana, Ljubljana, Slovenia
-  \item International Observatory on End of Life Care, Lancaster University, Lancaster, United Kingdom
-  \item Marie Curie North West, Liverpool, United Kingdom
-  \item Department of Medical Oncology, Leiden University Medical Center, Leiden, the Netherlands
-  \item Medical Statistics, Department of Biomedical Data Sciences, Leiden University Medical Center, Leiden, the Netherlands
-  \item Department of Design, Organisation and Strategy, Faculty of Industrial Design Engineering, Delft University of Technology, Delft, the Netherlands
-  \item Leiden Institute of Advanced Computer Science, Leiden University, Leiden, the Netherlands
-  \item Fractal Strategy, Zaragoza, Spain
-\end{enumerate}
+^1^ Institute of Public Health, Medical Decision Making and Health Technology Assessment
+
+^2^ Department of Public Health, Health Services Research and Health Technology Assessment, UMIT TIROL – University for Health Sciences and Technology, Hall in Tirol, Austria
+
+^3^ Center for Health Decision Science and Departments of Epidemiology and Health Policy & Management, Harvard T.H. Chan School of Public Health
+
+^4^ Institute for Technology Assessment, Department of Radiology, Massachusetts General Hospital, Harvard Medical School, Boston, MA, USA
+
+^5^ Department of Medical Oncology, Miguel Servet University Hospital, Facultad de Medicina. Universidad de Zaragoza, Instituto Investigación Sanitaria Aragón, Zaragoza, Spain
+
+^6^ Medical Oncology, Instituto de Investigación Sanitaria de Aragón (IIS-A)
+
+^7^ Hospital Universitario Miguel Servet, Zaragoza, Spain
+
+^8^ Medical Decision Making, Department of Biomedical Data Sciences, Leiden University Medical Center, Leiden, the Netherlands
+
+^9^ Center for Shared Decision Making Vejle/Lillebaelt University Hospital of Southern Denmark
+
+^10^ Department of Public Health, Erasmus MC, University Medical Center Rotterdam, Rotterdam, the Netherlands
+
+^11^ Department of Linguistics and English Language, Lancaster University, Lancaster, United Kingdom
+
+^12^ Institute of Oncology Ljubljana, Medical faculty Ljubljana, University of Ljubljana, Ljubljana, Slovenia
+
+^13^ International Observatory on End of Life Care, Lancaster University, Lancaster, United Kingdom
+
+^14^ Marie Curie North West, Liverpool, United Kingdom
+
+^15^ Department of Medical Oncology, Leiden University Medical Center, Leiden, the Netherlands
+
+^16^ Medical Statistics, Department of Biomedical Data Sciences, Leiden University Medical Center, Leiden, the Netherlands
+
+^17^ Department of Design, Organisation and Strategy, Faculty of Industrial Design Engineering, Delft University of Technology, Delft, the Netherlands
+
+^18^ Leiden Institute of Advanced Computer Science, Leiden University, Leiden, the Netherlands
+
+^19^ Fractal Strategy, Zaragoza, Spain
 
 # Supplement 2: Variance of the Cox model prediction
 In the article, we assume the Cox model variance is estimated using the delta method. We use the derivation from the book \textit{Statistical Models Based on Counting Processes} by Andersen, Borgan, Gill and Keiding. Using this method, the variance of a Cox model prediction for the new patient is:
 
-$$V_{Cox}(\hat S_{new}(t)) = V(\hat S(t|x_{new})|\boldsymbol{\beta}) + \left. \frac{\partial S}{\partial \boldsymbol{\beta}} \right|_{\boldsymbol{\beta}=\hat{\boldsymbol{\beta}}}^\top V(\hat{\boldsymbol{\beta}}) \left. \frac{\partial S}{\partial \boldsymbol{\beta}} \right|_{\boldsymbol{\beta}=\hat{\boldsymbol{\beta}}}$$
+$$
+V_{Cox}(\hat S_{new}(t)) = V(\hat S(t|x_{new})|\boldsymbol{\beta}) + \left. \frac{\partial S}{\partial \boldsymbol{\beta}} \right|_{\boldsymbol{\beta}=\hat{\boldsymbol{\beta}}}^\top V(\hat{\boldsymbol{\beta}}) \left. \frac{\partial S}{\partial \boldsymbol{\beta}} \right|_{\boldsymbol{\beta}=\hat{\boldsymbol{\beta}}}
+$$
 
 where $V(\hat{S}(t|x_{\text{new}})|\beta)$ is the variance of the survival function for a patient with covariates $x_{new}$, ignoring uncertainty in $\hat{\beta}$. The second term of the sum concerns the variance due to coefficient estimation and how this variance impacts the survival function by looking at the gradient of the survival function. The first term of the variance is given by:
 
-$$V(\hat S(t|x_{new})|\hat\boldsymbol{\beta}) = \hat S^2(t|x_{new}) \exp(2\hat\boldsymbol{\beta}^\top \mathbf{x}_{new}) \sum_{j:t_j \le t} \frac{d_j}{(\sum_{i \in R_j} \exp(\hat\boldsymbol{\beta}^\top \mathbf{x}_i))^2}$$
+$$
+V(\hat{S}(t|\mathbf{x}_{\text{new}})|\hat{\boldsymbol{\beta}}) = \hat{S}^2(t|\mathbf{x}_{\text{new}}) \exp(2\hat{\boldsymbol{\beta}}^\top \mathbf{x}_{\text{new}}) \sum_{j:t_j \le t} \frac{d_j}{\left(\sum_{i \in R_j} \exp(\hat{\boldsymbol{\beta}}^\top \mathbf{x}_i)\right)^2}
+$$
 
 which is the Aalen formula for the variance of the baseline survival function based on the risk-weighted number at risk, multiplied by the risk score of our new patient.
 
 The uncertainty in $\hat{S}_{\text{new}}(t)$ caused by the estimation of the coefficients depends on the variance of the coefficients and the gradient of the survival function with respect to the coefficients. The variance of the estimated coefficients $V(\hat{\beta})$ is asymptotically equal to the inverse Fisher information matrix $I(\hat{\beta})^{-1}$. Finally, we can estimate the gradient of the survival function with respect to the coefficient by:
 
-$$\frac{\partial \hat{S}(t|x_{\text{new}})}{\partial \beta}\right|_{\boldsymbol{\beta}=\hat{\boldsymbol{\beta}}} = \exp(\beta^\top x_{\text{new}}) w$$
+$$
+\left. \frac{\partial \hat{S}(t|x_{\text{new}})}{\partial \beta}\right|_{\boldsymbol{\beta}=\hat{\boldsymbol{\beta}}} = \exp(\beta^\top x_{\text{new}}) w
+$$
+
 
 where $w = (w_1, \dots, w_p)$ is a vector of partial derivatives, with $w_q$ the partial derivative of the survival function in the direction of $\beta_q$ for $q \in \{1, \dots, p\}$ with:
 
-$$w_q = \sum_{j:t_j \le t} \frac{1}{\sum_{i \in R_j} \exp(\hat\beta^\top x_i)} \left( \overline{x}_q - x_{\text{new},q} \right)$$
+$$
+w_q = \sum_{j:t_j \le t} \frac{1}{\sum_{i \in R_j} \exp(\hat\beta^\top x_i)} \left( \overline{x}_q - x_{\text{new},q} \right)
+$$
 
 where $\overline{x}_q$ is the risk-weighted mean of $x_{j,q}$'s ($\overline{x}_q=\frac{\sum_{i \in R_j} x_{i,q} \exp(\hat\beta^\top x_i)}{\sum_{i \in R_j} \exp(\hat\beta^\top x_i)}$), which are the $q$-th covariate for individuals $j$. Together, we have that the effective sample size for a Cox model prediction of a patient with covariate values $x_{\text{new}}$ at time $t$ is:
 
-$$N_*(t, x_{\text{new}}) = \frac{\hat{S}_{\text{new}}(t)(1-\hat{S}_{\text{new}}(t))}{\exp(2\hat\beta^\top x_{\text{new}}) \hat{S}_{\text{new}}^2(t) \left[ \sum_{j:t_j \le t} \frac{d_j}{(\sum_{i \in R_j} \exp(\hat\beta^\top x_i))^2} + w^\top I(\hat{\beta})^{-1} w \right]}.$$
+$$
+N_*(t, x_{\text{new}}) = \frac{\hat{S}_{\text{new}}(t)(1-\hat{S}_{\text{new}}(t))}{\exp(2\hat\beta^\top x_{\text{new}}) \hat{S}_{\text{new}}^2(t) \left[ \sum_{j:t_j \le t} \frac{d_j}{(\sum_{i \in R_j} \exp(\hat\beta^\top x_i))^2} + w^\top I(\hat{\beta})^{-1} w \right]}.
+$$
 
 
 # Supplement 3: Efficiency Breslow vs Nelson-Aalen
@@ -158,10 +185,10 @@ print(combined_plot)
 
 
 # Supplement 5: Cox model has narrower 95% CI than Kaplan-Meier
-The effective sample size of a prediction from a univariate Cox model based only on treatment is higher than that of a Kaplan-Meier curve for the same treatment group, especially early on in follow-up. This suggests that the Cox model prediction is more certain about the prediction and this should reflect in a smaller 95% confidence interval. Indeed, when comparing the Cox model prediction for a patient receiving 'Lev+5FU' treatment from univariate Cox model based only on treatment to the Kaplan-Meier curve for this treatment group in @fig-supplement-3, we see that the 95% confidence interval of the Cox model prediction is narrower than that of the Kaplan-Meier curve, especially early on in follow-up. This is consistent with the higher effective sample size of the Cox model prediction compared to the Kaplan-Meier curve for this patient and treatment group.
+The effective sample size of a prediction from a univariate Cox model based only on treatment is higher than that of a Kaplan-Meier curve for the same treatment group, especially early on in follow-up. This suggests that the Cox model prediction is more certain about the prediction and this should reflect in a smaller 95% confidence interval. Indeed, when comparing the Cox model prediction for a patient receiving 'Lev+5FU' treatment from univariate Cox model based only on treatment to the Kaplan-Meier curve for this treatment group in @fig-supplement-5, we see that the 95% confidence interval of the Cox model prediction is narrower than that of the Kaplan-Meier curve, especially early on in follow-up. This is consistent with the higher effective sample size of the Cox model prediction compared to the Kaplan-Meier curve for this patient and treatment group.
 
 ```{r}
-#| label: supplement-5
+#| label: fig-supplement-5
 #| fig-cap: "95% Confidence Interval comparison."
 #| output: true
 #| echo: FALSE
@@ -206,10 +233,10 @@ plot_ci <- ggplot() +
   geom_line(aes(x = km_rx_2$time, y = km_rx_2$lower, color = "Kaplan-Meier", linetype = "95% CI"),
             lwd = 1.3, alpha = 0.5) +
   
-  # Double arrow for Kaplan–Meier at t = 480
+  # Double arrow for Kaplan–Meier at t = 1.5
   geom_segment(
     {
-      i <- which.max(ifelse(km_rx_2$time < 480, km_rx_2$time, -Inf))
+      i <- which.max(ifelse(km_rx_2$time < 1.5, km_rx_2$time, -Inf))
       aes(x = km_rx_2$time[i], xend = km_rx_2$time[i],
           y = km_rx_2$lower[i], yend = km_rx_2$upper[i])
     },
@@ -218,10 +245,10 @@ plot_ci <- ggplot() +
     arrow = arrow(length = unit(0.15, "cm"), ends = "both", type = "closed")
   ) +
   
-  # Double arrow for Cox at t = 520
+  # Double arrow for Cox at t = 1.6
   geom_segment(
     {
-      j <- which.max(ifelse(cox_rx_2$time < 520, cox_rx_2$time, -Inf))
+      j <- which.max(ifelse(cox_rx_2$time < 1.6, cox_rx_2$time, -Inf))
       aes(x = cox_rx_2$time[j], xend = cox_rx_2$time[j],
           y = cox_rx_2$lower[j], yend = cox_rx_2$upper[j])
     },
@@ -237,7 +264,7 @@ plot_ci <- ggplot() +
   scale_x_continuous(name = "Time (years)",
                      breaks = seq(0, max(colon_df$time), by = 2)) +
   labs(title = "Survival curve of a patient with Lev+5FU-treatment from Cox and Kaplan-Meier")
-
+print(plot_ci)
 ```
 
 
@@ -245,7 +272,7 @@ plot_ci <- ggplot() +
 To support a claim made in the article, we quickly show in an example with the GUSTO data that a patient with the mean value of all predictors in the model has an effective sample size equal to the development sample size in a linear regression model. We fit a linear regression model for the `day30` outcome based on age and height, two continuous predictors. We find that the effective sample size for a patient with mean age and mean height is 1214, equal to the development sample size of 1214 patients in this subset of the GUSTO data. We follow code from Thomassen 2024:
 
 ```{r}
-#| echo: true
+#| echo: false
 #| label: supplement-6
 #| output: true
 

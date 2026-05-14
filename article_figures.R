@@ -585,6 +585,7 @@ print(figure5)
 source("code/compile.R")
 require(surveillance)
 require(future.apply)
+require(parallel)
 
 # Seed for consistency
 set.seed(1923)
@@ -600,7 +601,8 @@ n_sim <- 100  # choose number of repeats
 # 1. Define the plan (e.g., use all available cores)
 plan(sequential) # Shuts down existing workers
 gc()             # Force garbage collection
-plan(multisession, workers = 11) # Re-initialize (try fewer workers to save RAM)
+cores <- detectCores()
+plan(multisession, workers = cores-1) # Re-initialize (try fewer workers to save RAM)
 df_standard <- future_lapply(1:n_sim, function(r) {
   run_one(r, scale, shape, maxtime, hr, n, time_grid, model_type = "standard")
 }, future.seed = TRUE) %>% 
@@ -708,7 +710,8 @@ print(figure6)
 ################################ FIGURE 7 ######################################
 ################################################################################
 source("code/compile.R")
-library(future.apply)
+require(future.apply)
+require(parallel)
 set.seed(1923)
 
 shape = c(0.5) # shape 1 means exponential
@@ -723,7 +726,8 @@ n_sim <- 100  # choose number of repeats
 # 1. Define the plan (e.g., use all available cores)
 plan(sequential) # Shuts down existing workers
 gc()             # Force garbage collection
-plan(multisession, workers = 12) # Re-initialize (try fewer workers to save RAM)
+cores <- detectCores()
+plan(multisession, workers = cores-1) # Re-initialize (try fewer workers to save RAM)
 df <- future_lapply(1:n_sim, function(r) {
   run_one(r, scale, shape, maxtime, hr, n, time_grid, model_type = "standard")
 }, future.seed = TRUE) %>% 
