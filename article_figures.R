@@ -313,12 +313,23 @@ print(paste0("Delta R^2 after addition of age is: ", round(delta_R2_age*100, 2),
 
 
 ################################################################################
-################################ FIGURE 4 ######################################
+################################ FIGURE 4 (combined) ###########################
 ################################################################################
+# Replaces the old Figures 4 and 5. Row 1: binary predictor, row 2: continuous
+# predictor. Columns: (A/D) predicted survival, (B/E) effective sample size,
+# (C/F) share of the variance that comes from the baseline hazard.
+# The total-variance panels (old 4D / 5D) are in the supplementary figure at the end.
+# Both simulations and seeds are as in the old code, so the numbers are unchanged.
 source("code/compile.R")
 require(surveillance)
+library(ggplot2)
+library(patchwork)
 
-# Seed for consistency
+with_variance <- TRUE   # TRUE: 2 x 3 (with the variance share); FALSE: 2 x 2
+
+################################################################################
+# Part 1: binary predictor (5,000 per group, HR 2, no censoring)
+################################################################################
 set.seed(1923)
 
 scale = c(10)
@@ -327,15 +338,15 @@ maxtime = 100 # maxtime
 hr = 2 # hazard ratio
 n = 5000 # number per group
 
-events <- simsurv( dist="weibull", 
-                   gammas=shape, 
-                   lambdas=scale[1]^(-shape), 
+events <- simsurv( dist="weibull",
+                   gammas=shape,
+                   lambdas=scale[1]^(-shape),
                    x=data.frame(tx = c(rep(0, n), rep(1, n))),
                    betas = c("tx" = log(hr)),
                    maxt=maxtime)
 events$tx = c(rep(0, n), rep(1, n))
 events$eventtime[8885] <- 2.997671  # handmatig ties weghalen
-events$eventtime[6298] <- 5.668818  # werkt omdat seed vast staats
+events$eventtime[6298] <- 5.668818  # werkt omdat seed vast staat
 time <- sort(unique(events$eventtime))
 time0 <- sort(unique(events[events$tx == 0, ]$eventtime))
 time1 <- sort(unique(events[events$tx == 1, ]$eventtime))
@@ -350,233 +361,124 @@ sf_n0 <- survfit_n(sf0) |> sf_to_df(time = time0)
 sf_n1 <- survfit_n(sf1) |> sf_to_df(time = time1)
 cox_n0 <- survfit_n(survfit(cox, newdata = data.frame(tx = 0)), cox, coef=T, chaz=T)
 cox_n1 <- survfit_n(survfit(cox, newdata = data.frame(tx = 1)), cox, coef=T, chaz=T)
-
 cox_n0 <- sf_to_df(cox_n0, time = time)
 cox_n1 <- sf_to_df(cox_n1, time = time)
 
-colors <- c("1" = "#37293F", "3" = "#2E7691",  "2" = "#9f84af", "4" = "#c6aa2c")
-linetype <- c("1" = "solid", "2" = "dashed")
-
-# plot the effective sample sizes all in one plot
-plot1 <- ggplot() +
-  geom_line(aes(x = time, y = cox_n0$n.eff, color = "1"), size = 1.2) +
-  geom_line(aes(x = time, y = cox_n1$n.eff, color = "2"), size = 1.2) +
-  geom_line(aes(x = time1, y = sf_n0$n.eff, color = "3"), size = 1.2) +
-  geom_line(aes(x = time1, y = sf_n1$n.eff, color = "4"), size = 1.2) +
-  scale_x_continuous(name = NULL, labels = NULL, limits = c(0, 15)) +
-  scale_y_continuous(name = "Effective Sample Size (N)", limits = c(0, 15000)) +
-  #ggtitle("Effective Sample Size of Coxph and Survfit") +
-  labs( color = "Legend", tag = "(B)") +
-  scale_color_manual(
-    values = colors,
-    labels = c("Cox Women", "Cox Men", "KM Women", "KM Men")
-  ) +
-  theme_minimal() +
-  theme(legend.position = "right") + 
-  guides(colour = guide_legend(override.aes = list(alpha = 1)))
-
-
-# plot the two kaplan-meiers overlapping in one plot and the cox survival predictions for the 0 an 1 treatment patients
-plot2 <- ggplot() +
-  geom_line(aes(x = time0, y = sf_n0$surv*100, color = "3"), size = 1.2) +
-  geom_line(aes(x = time1, y = sf_n1$surv*100, color = "4"), size = 1.2) +
-  geom_line(aes(x = time, y = cox_n0$surv*100, color = "1"), size = 1.2) +
-  geom_line(aes(x = time, y = cox_n1$surv*100, color = "2"), size = 1.2) +
-  scale_x_continuous(name = "Time", limits = c(0, 15)) +
-  scale_y_continuous(name = "Predicted survival (%)", limits = c(0, 100)) +
-  #ggtitle("Survival of Coxph and Survfit") +
-  labs( color = "Legend", tag = "(A)") +
-  scale_color_manual(
-    values = colors,
-    labels = c("Cox Women", "Cox Men", "KM Women", "KM Men")
-  ) +
-  theme_minimal() +
-  theme(legend.position = "none") + 
-  guides(colour = guide_legend(override.aes = list(alpha = 1))) 
-
-time <- sort(unique(c(cox_n0$time, cox_n1$time)))
-
-cox_incremental_hazvar0 <- (c(cox_n0$std.chaz, 0)-c(0, cox_n0$std.chaz))*cox_n0$surv
-cox_incremental_hazvar1 <- (c(cox_n1$std.chaz, 0)-c(0, cox_n1$std.chaz))*cox_n0$surv
-cox_incremental_coefvar0 <- (c(cox_n0$std.coef, 0)-c(0, cox_n0$std.coef))*cox_n0$surv
-cox_incremental_coefvar1 <- (c(cox_n1$std.coef, 0)-c(0, cox_n1$std.coef))*cox_n0$surv
-colors <- c("1" = "#37293F", "3" = "#2E7691",  "2" = "#9f84af", "4" = "#c6aa2c")
-linetype <- c("1" = "solid", "2" = "dashed", "3" = "dotted")
-
-scaleFactor = 0.00003/1
-
-plot3 <- ggplot() +
-  geom_line(aes(x = time, y = cox_n0$std.chaz^2, color = "1", lty = "1"), size = 1, lwd = 1.2) +
-  geom_line(aes(x = time, y = cox_n1$std.chaz^2, color = "2", lty = "1"), size = 1, lwd = 1.2) +
-  geom_line(aes(x = time, y = cox_n0$std.err^2, color = "1", lty = "2"), size = 1, lwd = 1.2) +
-  geom_line(aes(x = time, y = cox_n1$std.err^2, color = "2", lty = "2"), size = 1, lwd = 1.2) +
-  scale_x_continuous(name = "Time", limits = c(0, 15)) +
-  scale_y_continuous(name = "Variance of Cox model", limits = c(0, 0.003)) +
-  #ggtitle("Increment of standard error") +
-  labs( color = "Legend", tag = "(D)") +
-  scale_color_manual(
-    values = colors,
-    labels = c("Women", "Men")
-  ) +
-  scale_linetype_manual(
-    values = linetype,
-    labels = c( "Baseline hazard", "Total variance" ) ) +
-  theme_minimal() +
-  theme(legend.position = "none") + 
-  guides(colour = guide_legend(override.aes = list(alpha = 1)))
-
-
-plot4 <- ggplot() +
-  geom_line(aes(x = time, y = cox_n0$std.chaz^2/cox_n0$std.err^2*100, color = "1", lty = "1"), size = 1, lwd = 1.2) +
-  geom_line(aes(x = time, y = cox_n1$std.chaz^2/cox_n1$std.err^2*100, color = "2", lty = "1"), size = 1, lwd = 1.2) +
-  scale_x_continuous(name = "Time", limits = c(0, 15)) +
-  scale_y_continuous(name = "Percentage of variance from h0", limits = c(0, 100)) +
-  
-  #ggtitle("Proportion of variance from baseline hazard") +
-  labs( color = "Legend", tag = "(C)") +
-  scale_color_manual(
-    values = colors,
-    labels = c("Women", "Men")
-  ) +
-  scale_linetype_manual(
-    values = linetype,
-    labels = c( "Baseline hazard", "Coefficient" ) ) +
-  theme_minimal() +  
-  theme(legend.position = "right") + 
-  guides(colour = "none")
-
-# Combine the plots using patchwork and add a single legend on the right
-figure4 <- ( (plot2 | plot1) / (plot4 | plot3) ) +
-  plot_layout(guides = "collect") &
-  theme(legend.position = "right")
-
-# Print the combined plot
-print(figure4)
+# Tidy data for plotting (built now, so that nothing depends on objects that Part 2 overwrites)
+df_bin <- rbind(
+  data.frame(grp = "Cox women", time = time, surv = cox_n0$surv*100, n.eff = cox_n0$n.eff,
+             v_base = cox_n0$std.chaz^2, v_total = cox_n0$std.err^2),
+  data.frame(grp = "Cox men",   time = time, surv = cox_n1$surv*100, n.eff = cox_n1$n.eff,
+             v_base = cox_n1$std.chaz^2, v_total = cox_n1$std.err^2),
+  data.frame(grp = "KM women",  time = time0, surv = sf_n0$surv*100, n.eff = sf_n0$n.eff,
+             v_base = NA_real_, v_total = NA_real_),
+  data.frame(grp = "KM men",    time = time1, surv = sf_n1$surv*100, n.eff = sf_n1$n.eff,
+             v_base = NA_real_, v_total = NA_real_))
+df_bin$grp <- factor(df_bin$grp, levels = c("Cox women", "Cox men", "KM women", "KM men"))
+df_bin$share <- df_bin$v_base / df_bin$v_total * 100
 
 ################################################################################
-################################ FIGURE 5 ######################################
+# Part 2: continuous predictor (X ~ N(0,1), n = 10,000, HR 2 per SD, no censoring)
 ################################################################################
-source("code/compile.R")
-require(surveillance)
-
-# Seed for consistency
 set.seed(1923)
 
 scale = c(10)
 shape = c(1) # shape 1 means exponential
 maxtime = 100 # maxtime
 hr = 2 # hazard ratio
-n = 10000 # number per group
+n = 10000 # number of patients
 
 x <- data.frame(x = rnorm(n, 0, 1))
-events <- simsurv( dist="weibull", 
-                   gammas=shape, 
-                   lambdas=scale[1]^(-shape), 
+events <- simsurv( dist="weibull",
+                   gammas=shape,
+                   lambdas=scale[1]^(-shape),
                    x=x,
                    betas = c("x" = log(hr)),
                    maxt=maxtime)
 events$x = x$x
 time <- sort(unique(events$eventtime))
 
-# Fit the models
+# Fit the model
 cox <- coxph(Surv(eventtime, status) ~ x, data = events)
 
 # Calculate effective N and stuff
 cox_mean <- survfit_n(survfit(cox, newdata = data.frame(x = 0)), cox, coef=T, chaz=T)
 cox_sd_plus <- survfit_n(survfit(cox, newdata = data.frame(x = 1)), cox, coef=T, chaz=T)
 cox_sd_min <- survfit_n(survfit(cox, newdata = data.frame(x = -1)), cox, coef=T, chaz=T)
-
 cox_mean <- sf_to_df(cox_mean, time = time)
 cox_sd_plus <- sf_to_df(cox_sd_plus, time = time)
 cox_sd_min <- sf_to_df(cox_sd_min, time = time)
 
-colors <- c("1" = "#37293F", "3" = "#2E7691",  "2" ="#C2666B", "4" = "#c6aa2c")
-linetype <- c("1" = "solid", "2" = "dashed")
+one <- function(d, grp) data.frame(grp = grp, time = time, surv = d$surv*100, n.eff = d$n.eff,
+                                   v_base = d$std.chaz^2, v_total = d$std.err^2)
+df_cont <- rbind(one(cox_mean, "Mean"), one(cox_sd_plus, "+1 SD"), one(cox_sd_min, "-1 SD"))
+df_cont$grp <- factor(df_cont$grp, levels = c("Mean", "+1 SD", "-1 SD"))
+df_cont$share <- df_cont$v_base / df_cont$v_total * 100
 
-# plot the effective sample sizes all in one plot
-plot1 <- ggplot() +
-  geom_line(aes(x = time, y = cox_mean$n.eff, color = "1"), size = 1.2) +
-  geom_line(aes(x = time, y = cox_sd_plus$n.eff, color = "2"), size = 1.2) +
-  geom_line(aes(x = time, y = cox_sd_min$n.eff, color = "3"), size = 1.2) +
-  scale_x_continuous(name = NULL, labels = NULL, limits = c(0, 15)) +
-  scale_y_continuous(name = "Effective Sample Size (N)", limits = c(0, 15000)) +
-  #ggtitle("Effective Sample Size of Coxph and Survfit") +
-  labs( color = "Legend", tag = "(B)") +
-  scale_color_manual(
-    values = colors,
-    labels = c("Mean", "+1 SD", "-1 SD")
-  ) +
-  theme_minimal() +
-  theme(legend.position = "right") + 
-  guides(colour = guide_legend(override.aes = list(alpha = 1)))
+################################################################################
+# Plots
+################################################################################
+cols_bin  <- c("Cox women" = "#37293F", "Cox men" = "#9f84af", "KM women" = "#2E7691", "KM men" = "#c6aa2c")
+lty_bin   <- c("Cox women" = "solid", "Cox men" = "solid", "KM women" = "dashed", "KM men" = "dashed")
+cols_cont <- c("Mean" = "#37293F", "+1 SD" = "#C2666B", "-1 SD" = "#2E7691")
+lty_cont  <- c("Mean" = "solid", "+1 SD" = "solid", "-1 SD" = "solid")
 
+panel <- function(d, y, ylab, cols, ltys, ylim, xlab = TRUE, legend = FALSE, title = NULL) {
+  p <- ggplot(d[!is.na(d[[y]]), ], aes(time, .data[[y]], colour = grp, linetype = grp)) +
+    geom_line(linewidth = 1.2) +
+    scale_colour_manual(values = cols, name = NULL) +
+    scale_linetype_manual(values = ltys, name = NULL) +
+    scale_x_continuous(name = if (xlab) "Time" else NULL, labels = if (xlab) waiver() else NULL, limits = c(0, 15)) +
+    scale_y_continuous(name = ylab, limits = ylim) +
+    theme_minimal() +
+    theme(plot.title = element_text(face = "bold", hjust = 0))
+  if (!is.null(title)) p <- p + ggtitle(title)
+  if (legend) {
+    # legend inside the panel (top right is empty for the N* curves); move with legend.position.inside if needed
+    p + theme(legend.position = "inside", legend.position.inside = c(0.97, 0.97), legend.justification = c(1, 1),
+              legend.background = element_rect(fill = alpha("white", 0.8), colour = NA))
+  } else p + theme(legend.position = "none")
+}
 
-# plot the two kaplan-meiers overlapping in one plot and the cox survival predictions for the 0 an 1 treatment patients
-plot2 <- ggplot() +
-  geom_line(aes(x = time, y = cox_mean$surv*100, color = "1"), size = 1.2) +
-  geom_line(aes(x = time, y = cox_sd_plus$surv*100, color = "2"), size = 1.2) +
-  geom_line(aes(x = time, y = cox_sd_min$surv*100, color = "3"), size = 1.2) +
-  scale_x_continuous(name = "Time", limits = c(0, 15)) +
-  scale_y_continuous(name = "Predicted survival (%)", limits = c(0, 100)) +
-  #ggtitle("Survival of Coxph and Survfit") +
-  labs( color = "Legend", tag = "(A)") +
-  scale_color_manual(
-    values = colors,
-    labels = c("Mean", "+1 SD", "-1 SD")
-  ) +
-  theme_minimal() +
-  theme(legend.position = "none") + 
-  guides(colour = guide_legend(override.aes = list(alpha = 1))) 
+lab_surv  <- "Predicted survival (%)"
+lab_neff  <- "Effective sample size (N*)"
+lab_share <- "Share of variance from\nbaseline hazard (%)"
 
-scaleFactor = 0.00003/1
+pA <- panel(df_bin,  "surv",  lab_surv,  cols_bin,  lty_bin,  c(0, 100),   xlab = FALSE, title = "Binary predictor")
+pB <- panel(df_bin,  "n.eff", lab_neff,  cols_bin,  lty_bin,  c(0, 15000), xlab = FALSE, legend = TRUE)
+pC <- panel(df_bin,  "share", lab_share, cols_bin,  lty_bin,  c(0, 100),   xlab = FALSE)
+pD <- panel(df_cont, "surv",  lab_surv,  cols_cont, lty_cont, c(0, 100),   title = "Continuous predictor")
+pE <- panel(df_cont, "n.eff", lab_neff,  cols_cont, lty_cont, c(0, 15000), legend = TRUE)
+pF <- panel(df_cont, "share", lab_share, cols_cont, lty_cont, c(0, 100))
 
-plot3 <- ggplot() +
-  geom_line(aes(x = time, y = cox_mean$std.chaz^2, color = "1", lty = "1"), size = 1, lwd = 1.2) +
-  geom_line(aes(x = time, y = cox_sd_plus$std.chaz^2, color = "2", lty = "1"), size = 1, lwd = 1.2) +
-  geom_line(aes(x = time, y = cox_sd_min$std.chaz^2, color = "3", lty = "1"), size = 1, lwd = 1.2) +
-  geom_line(aes(x = time, y = cox_mean$std.err^2, color = "1", lty = "2"), size = 1, lwd = 1.2) +
-  geom_line(aes(x = time, y = cox_sd_plus$std.err^2, color = "2", lty = "2"), size = 1, lwd = 1.2) +
-  geom_line(aes(x = time, y = cox_sd_min$std.err^2, color = "3", lty = "2"), size = 1, lwd = 1.2) +
-  scale_x_continuous(name = "Time", limits = c(0, 15)) +
-  scale_y_continuous(name = "Variance of Cox model", limits = c(0, 0.003)) +
-  #ggtitle("Increment of standard error") +
-  labs( color = "Legend", tag = "(D)") +
-  scale_color_manual(
-    values = colors,
-    labels = c("Mean", "+1 SD", "-1 SD")
-  ) +
-  scale_linetype_manual(
-    values = linetype,
-    labels = c( "Baseline hazard", "Total variance" ) ) +
-  theme_minimal() +
-  theme(legend.position = "none") + 
-  guides(colour = guide_legend(override.aes = list(alpha = 1)))
+figure4 <- if (with_variance) {
+  (pA | pB | pC) / (pD | pE | pF) + plot_annotation(tag_levels = "A")
+} else {
+  (pA | pB) / (pD | pE) + plot_annotation(tag_levels = "A")
+}
+print(figure4)
+# ggsave("results/figure4.png", figure4, width = if (with_variance) 12 else 8.5, height = 7, dpi = 300, bg = "white")
 
-
-plot4 <- ggplot() +
-  geom_line(aes(x = time, y = cox_mean$std.chaz^2/cox_mean$std.err^2*100, color = "1"), size = 1, lwd = 1.2) +
-  geom_line(aes(x = time, y = cox_sd_plus$std.chaz^2/cox_sd_plus$std.err^2*100, color = "2"), size = 1, lwd = 1.2) +
-  geom_line(aes(x = time, y = cox_sd_min$std.chaz^2/cox_sd_min$std.err^2*100, color = "3"), size = 1, lwd = 1.2) +
-  scale_x_continuous(name = "Time", limits = c(0, 15)) +
-  scale_y_continuous(name = "Percentage of variance from h0", limits = c(0, 100)) +
-  
-  #ggtitle("Proportion of variance from baseline hazard") +
-  labs( color = "Legend", tag = "(C)") +
-  scale_color_manual(
-    values = colors,
-    labels = c("Mean", "+1 SD", "-1 SD")
-  ) +
-  theme_minimal() +  
-  theme(legend.position = "right") + 
-  guides(colour = "none")
-
-# Combine the plots using patchwork and add a single legend on the right
-figure5 <- ( (plot2 | plot1) / (plot4 | plot3) ) +
-  plot_layout(guides = "collect") &
-  theme(legend.position = "right")
-
-# Print the combined plot
-print(figure5)
+################################################################################
+# Supplementary figure: total variance (solid) and the baseline-hazard part (dashed)
+# (old Figures 4D and 5D)
+################################################################################
+var_panel <- function(d, cols, title) {
+  d <- d[!is.na(d$v_total), ]
+  long <- rbind(data.frame(d[c("grp", "time")], comp = "Total variance", v = d$v_total),
+                data.frame(d[c("grp", "time")], comp = "Baseline hazard", v = d$v_base))
+  ggplot(long, aes(time, v, colour = grp, linetype = comp)) +
+    geom_line(linewidth = 1.2) +
+    scale_colour_manual(values = cols, name = NULL) +
+    scale_linetype_manual(values = c("Total variance" = "solid", "Baseline hazard" = "dashed"), name = NULL) +
+    scale_x_continuous(name = "Time", limits = c(0, 15)) +
+    scale_y_continuous(name = "Variance of the Cox model estimate", limits = c(0, 0.003)) +
+    ggtitle(title) + theme_minimal() + theme(plot.title = element_text(face = "bold", hjust = 0))
+}
+figure_S_variance <- (var_panel(df_bin, cols_bin[1:2], "Binary predictor") |
+                        var_panel(df_cont, cols_cont, "Continuous predictor")) +
+  plot_annotation(tag_levels = "A")
+print(figure_S_variance)
 
 
 ################################################################################

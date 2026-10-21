@@ -498,7 +498,7 @@ rm( list = ls())
 
 
 # Supplement 9: Heuristic explanation of higher than total sample size
-The baseline hazard for the Cox model at time $t_i$ with $\delta_i$ events is estimated as $\frac{d_j}{\sum_{i \in R_j} \exp(\mathbf{\hat \beta}^\top \mathbf{x}_i) } $, where the denominator is the risk-weighted number at risk. This risk-weighted number at risk is the implicit sample size used for the baseline hazard estimation and based on $\beta$, which is estimated based on all events including those in the future.
+The baseline hazard for the Cox model at time $t_i$ with $\delta_i$ events is estimated as $\frac{d_j}{\sum_{i \in R_j} \exp( \hat\beta^\top \mathbf{x}_i ) }$, where the denominator is the risk-weighted number at risk. This risk-weighted number at risk is the implicit sample size used for the baseline hazard estimation and based on $\beta$, which is estimated based on all events including those in the future.
 
 Near $t=0$ in Figure 4, a single death in 10,000 patients leads to a risk-weighted number at risk in the data of $5,000 \cdot 2 + 5,000 \cdot 1 = 15,000$. At such early follow-up time, the hazard of a patient is $\frac{\exp(\hat\beta^\top x_{\text{new}})}{\sum_{i \in R_j} \exp(\hat\beta^\top x_i)}$, the product of their hazard ratio and the baseline hazard. For a woman, the risk of being this first death is $1/15,000$, giving us an effective sample size of 15,000, exactly what was found in the simulation. For a man, the risk of being this first death is $2/15,000 = 1/7,500$, again matching the effective sample size of 7,500 in the simulation.
 
@@ -520,11 +520,11 @@ hr = 2 # hazard ratio
 n = 5000 # number per group
 
 events <- simsurv( dist="weibull",
-gammas=shape,
-lambdas=scale[1]^(-shape),
-x=data.frame(tx = c(rep(0, n), rep(1, n))),
-betas = c("tx" = log(hr)),
-maxt=maxtime)
+                   gammas=shape,
+                   lambdas=scale[1]^(-shape),
+                   x=data.frame(tx = c(rep(0, n), rep(1, n))),
+                   betas = c("tx" = log(hr)),
+                   maxt=maxtime)
 events$tx = c(rep(0, n), rep(1, n))
 events$eventtime[8885] <- 2.997671  # remove ties by hand
 events$eventtime[6298] <- 5.668818  # because seed is set
@@ -719,7 +719,7 @@ mean(lin_pred)
 mean(HRs)
 ```
 
-So we see that the mean linear predictor (X\beta) is 0 (ignoring some monte-carlo standard error), while the mean hazard ratio is 1.27. 
+So we observe that the mean linear predictor (X\beta) is 0 (ignoring some monte-carlo standard error), while the mean hazard ratio is 1.27. 
 
 ```{r}
 N = 1000000
@@ -784,3 +784,378 @@ sim_se_comparison( reps = 5000, newpatient = data.frame(X1=0, X2=0))
 sim_se_comparison( reps = 5000, newpatient = data.frame(X1=1, X2=1))
 ```
 
+# Supplement 15: Effective sample size in open real-world datasets
+
+To investigate how often the behaviour described in the main text occurs in practice, we computed effective sample sizes for Cox models fitted to eight open datasets (colon, pbc, veteran, lung, rotterdam, gbsg, flchain, mgus2; optionally support). For each dataset we pre-specified a set of candidate predictors (skewed positive biomarkers were log-transformed beforehand) and fitted a Cox model (Efron ties) with backward elimination on AIC. The delta-method variance does not account for the selection step, so $N_*$ is conditional on the selected model. For every patient in the development data, $N_*$ was calculated at the time points at which 1%, 10%, 25%, 40%, 60%, 75% and 90% of all events had occurred. Because N* is expressed relative to the development sample size, results are reported as $N_*/N$.
+
+```{r}
+#| label: fig-supplement-15-setup
+#| include: false
+source(here::here("code", "ess_realworld.R"))
+cache <- here::here("results", "ess_realworld.rds")
+if (file.exists(cache)) {
+  res <- readRDS(cache)
+} else {
+  res <- run_all()
+  dir.create(dirname(cache), showWarnings = FALSE, recursive = TRUE)
+  saveRDS(res, cache)
+}
+sm <- summarise_ess(res)
+pl <- make_plots(res, here::here("results"))
+```
+
+```{r}
+#| label: tbl-supplement-15-datasets
+#| echo: false
+tab <- unique(res[res$spec == "backward_efron",
+c("dataset", "n_raw", "n_total", "d_total", "n_par", "cstat", "sd_lp")])
+tab$epv <- tab$d_total / tab$n_par
+
+knitr::kable(
+tab[, c("dataset", "n_raw", "n_total", "d_total", "n_par", "epv", "cstat", "sd_lp")],
+digits = c(0, 0, 0, 0, 0, 1, 3, 2),
+row.names = FALSE,
+col.names = c("Dataset", "Patients in data", "Complete cases", "Events",
+"Predictors kept", "Events per predictor", "Harrell's C", "SD of linear predictor"),
+caption = "Datasets and backward-selected Cox models. Harrell's C is apparent (development data) and covers the full follow-up."
+)
+```
+
+```{r}
+#| label: fig-supplement-15-ratio
+#| echo: false
+#| fig-cap: "Effective sample size $N_*$ against predicted survival for the backward-selected Cox model in each dataset. The y-axis runs from 0 to $2N$ in each panel; points above $2N$ are not drawn (see the next figure). Colours indicate the fraction of all events observed at the horizon. Dashed line: $N_* = N$; dotted line: $S = 0.2$."
+pl$scatter
+
+```
+
+```{r}
+#| label: fig-supplement-15-above
+#| echo: false
+#| fig-cap: "Percentage of predictions with $N_* > 2N$, by dataset and by the fraction of events observed at the horizon."
+pl$above2N
+```
+
+```{r}
+#| label: fig-supplement-15-events
+#| echo: false
+#| fig-cap: "Distribution of $N_*/N$ across patients by the fraction of events observed at the horizon."
+pl$box
+```
+
+```{r}
+#| label: tbl-supplement-15-rule
+#| echo: false
+knitr::kable(
+  sm$rule_table, digits = 1,
+  col.names = c("Predicted survival", "Events observed", "Patient-horizons", "% with N* > N", "95th percentile N*/N", "Maximum N*/N"),
+  caption = "Proportion of predictions with $N_* > N$ by predicted survival and fraction of events observed (backward-selected Cox models; all datasets pooled)."
+)
+```
+
+<!-- Write the interpretation after inspecting the results: -->
+<!--  - share of patients with N* > N overall and within S > 0.2 & >50% events (tbl-supplement-15-rule) -->
+<!--  - whether early surplus follows the mean-HR / patient-HR ratio (sm$early_check) -->
+<!--  - drivers: surplus_drivers(res), driver_correlations(), plot_surplus_drivers() -->
+# Supplement 16: Simulation studies of the behavior of $N_*$ (ADEMP)
+
+Two simulation studies are reported in Section 4. Simulation 1 describes $N_*$ early in follow-up, without censoring, in a single binary or continuous predictor. Simulation 2 describes $N_*$ over the whole follow-up in a model with multiple predictors, for a wide range of overall event rates, model strengths and censoring patterns. Both are reported according to the ADEMP framework (aims, data-generating mechanisms, estimands, methods, performance measures) [@morris2019].
+
+## Simulation 1: early follow-up and the first-event heuristic
+
+**Aims.** (1) To show that $N_* > N$ occurs early in follow-up for patients with a lower hazard than the average patient. (2) To show how the variance of the survival estimate is divided into a part from the baseline hazard and a part from the coefficient, and how this division changes over time. (3) To compare $N_*$ at the first events with the heuristic $N_* \approx N \cdot \overline{\mathrm{HR}} / \mathrm{HR}_i$.
+
+**Data-generating mechanisms.** $N = 10\,000$ patients without censoring, constant baseline hazard $h_0(t) = 1$ and one predictor with hazard ratio 2: either a binary $X_1$ (exactly half of the patients with $X_1 = 1$) or a continuous $X_2 \sim N(0,1)$.
+
+**Estimands.** The survival probability and its effective sample size for patients with $X_1 = 0$ and $X_1 = 1$, and for patients with $X_2 = -1, 0$ and $1$, over time.
+
+**Methods.** A Cox model with the predictor was fitted to the data and $N_*$ was calculated with Equations (2) and (3). The variance was split into the baseline hazard term and the coefficient term. For the binary predictor, Kaplan-Meier estimates in the two groups were used as a reference.
+
+**Performance measures.** $N_*$ over time, and the proportion of the variance that originates from the baseline hazard.
+
+**The first-event heuristic.** At the first event time $t_1$, $\widehat{H}_0(t_1) = 1 / \sum_{j} \mathrm{HR}_j$ and its variance is $1 / (\sum_{j} \mathrm{HR}_j)^2$. For a patient with hazard ratio $\mathrm{HR}_i$, $\widehat{S}_i \approx 1 - \mathrm{HR}_i / \sum_j \mathrm{HR}_j$ and $\operatorname{Var}(\widehat{S}_i) \approx \mathrm{HR}_i^2 / (\sum_j \mathrm{HR}_j)^2$, so that
+$$N_* = \frac{S(1-S)}{\operatorname{Var}(\widehat{S})} \approx \frac{\sum_j \mathrm{HR}_j}{\mathrm{HR}_i} = N \cdot \frac{\overline{\mathrm{HR}}}{\mathrm{HR}_i},$$
+with $\overline{\mathrm{HR}}$ the mean hazard ratio in the development data. For the binary predictor, $\overline{\mathrm{HR}} = 1.5$, so $N_* \approx 15\,000$ for $X_1 = 0$ and $7\,500$ for $X_1 = 1$. The coefficient term is negligible at the first event and grows with the number of events.
+
+## Simulation 2: when does $N_*$ exceed $N$, and is $N_*$ reliable?
+
+### Aims
+
+1. To determine for which true survival probabilities the estimated effective sample size exceeds the development sample size ($\widehat{N}_* > N$), and how this depends on the overall proportion of patients with an event, the strength of the model (Harrell's C of the true linear predictor) and the type of censoring.
+2. To determine whether the variance underlying $\widehat{N}_*$ is reliable, which is assessed by the coverage of the 95% confidence interval. $N_*$ is the prediction variance re-expressed with the binomial variance, so a large $N_*$ is only meaningful if the variance is accurate.
+
+### Data-generating mechanisms
+
+Event times followed a Weibull proportional hazards model with $H_0(t) = t^{\gamma}$ and $\gamma = 1$. The model contained three standard normal and three binary (prevalence 0.5) true predictors with equal contributions to the linear predictor (coefficients 1 and 2, respectively). All coefficients were multiplied by a constant such that Harrell's C of the true linear predictor equalled a target value. This was determined in a large sample, truncated at the time at which the target proportion of patients had experienced an event.
+
+The main simulation was a full factorial design with three factors (40 scenarios):
+
+- Harrell's C of the true linear predictor: 0.6, 0.7, 0.8 and 0.9.
+- Overall proportion of patients with an event, $e$: 5%, 10%, 30%, 60% and 90%. The sample size was $N = 500 / e$ so that every scenario contains about 500 events ($N = 10\,000$ for $e = 5\%$ and $N = 556$ for $e = 90\%$).
+- Censoring: either a common end of follow-up for all patients, or administrative censoring mimicking registry data with staggered inclusion. In the latter, the potential follow-up of each patient was uniformly distributed between 20% and 100% of the maximum follow-up (for example, between 1 and 5 years), so nobody was censored early. The maximum follow-up was calibrated such that the overall proportion of patients with an event was $e$.
+
+Sensitivity analyses varied one factor at a time (Section "Sensitivity analyses"): the number of predictors ($k = 1, 3, 10$ continuous and $k$ binary predictors), the addition of $k$ predictors unrelated to the outcome, the Weibull shape ($\gamma = 0.7, 1, 1.5$) and random censoring (loss to follow-up).
+
+### Estimands
+
+The estimand is the true survival probability $S(t \mid x)$ for 200 fixed covariate profiles, located at quantiles 0.0005, 0.002, 0.01 to 0.99, 0.998 and 0.9995 of the true linear predictor, at seven time points. These are the times at which 5%, 10%, 25%, 40%, 60%, 75% and 90% of all events in the population had been observed. The reference effective sample size is
+$$N_*^{\text{true}} = \frac{S(1-S)}{\operatorname{Var}_{\text{emp}}(\widehat{S})},$$
+with $\operatorname{Var}_{\text{emp}}$ the variance of $\widehat{S}(t \mid x)$ over the replications.
+
+### Methods
+
+In each replication a Cox model (Efron ties) with all predictors (true predictors and, where applicable, noise predictors) was fitted. $\widehat{S}$ and its delta-method standard error were obtained with `survfit`, and $\widehat{N}_* = \widehat{S}(1-\widehat{S})/\widehat{\operatorname{SE}}(\widehat{S})^2$. Confidence intervals were calculated on the log-log scale.
+
+### Performance measures
+
+For each prediction (covariate profile, time point, simulated dataset) the true survival probability $S$ is known from the data-generating model, and $\widehat{N}_*$ is calculated from the fitted model. The primary measure is the percentage of predictions with $\widehat{N}_* > N$ among all predictions with the same true $S$; equivalently, the probability that a prediction for a patient with true survival $S$ has $\widehat{N}_* > N$. Predictions are grouped by $S$ on the logit scale (bins of 0.2 to 0.4). The other measures, calculated per scenario, profile and time point, are the ratio of the mean estimated variance to the empirical variance, and the coverage of the 95% confidence interval. All measures are shown as a function of the true survival probability on the logit scale (symmetric around 0.5), pooled over the time points, Harrell's C values and censoring settings, with every prediction weighted equally; the supplementary figures show them separately. The profiles are equally spaced quantiles of the linear predictor, so each stands for the same share of the population, and the percentage over all predictions at a time point is the share of the population with $\widehat{N}_* > N$. Profiles at the extremes of the linear predictor (below the 1st and above the 99th percentile) are extrapolations in a sample of this size and are excluded from the summaries. The true survival at which the percentage of predictions with $\widehat{N}_* > N$ crosses 5% was determined (by interpolation) for each event rate, and for each scenario separately for the table. Its relation with the overall event proportion $e$ was described by $1 - S^* = a\,e^{b}$, fitted by least squares on the log-log scale.
+
+### Number of replications
+
+The number of replications was determined in a pilot ($R = 300$ in selected scenarios, including the most demanding ones): the Monte Carlo standard error of each performance measure was estimated per cell (time point by band of true survival), and the number of replications was chosen such that the 90th percentile of the required numbers met a Monte Carlo standard error of 1 percentage point for $P(\widehat{N}_* > N)$, 0.5 percentage points for coverage and 5% for the variance ratio. This gave $R = $ <!-- fill in from pilot_mc() --> replications per scenario.
+
+### Limitations
+
+The fitted model is correctly specified, apart from the noise predictors in the sensitivity analysis, and no variable selection is performed. The simulation therefore isolates the behavior of the variance estimator. Misspecification, variable selection and overoptimism are not investigated. Predictions with a true survival below 0.01 rely on very few events in the replications, and their empirical variances are imprecise.
+
+### Code
+
+```{r}
+#| label: sim-supplement-16-code
+#| eval: false
+#| file: code/sim_guardrails.R
+```
+
+```{r}
+#| label: sim-supplement-16-run
+#| include: false
+source(here::here("code", "sim_guardrails.R"))
+cacheM <- here::here("results", "sim_main.rds")
+if (file.exists(cacheM)) {
+  resM <- readRDS(cacheM)
+} else {
+  resM <- run_all(make_scen("factorial"))
+  dir.create(dirname(cacheM), showWarnings = FALSE, recursive = TRUE)
+  saveRDS(resM, cacheM)
+}
+plM <- plot_main(resM, here::here("results"))     # supplement: columns = C, rows = censoring
+plM1 <- plot_main1(resM, here::here("results"))   # main figures: one panel, pooled
+thr <- fit_threshold(resM)
+```
+
+### Results
+
+<!-- Fill in after the simulation has been run. -->
+
+```{r}
+#| label: fig-supplement-16-main
+#| echo: false
+#| fig-cap: "Percentage of predictions with $\\widehat{N}_* > N$ as a function of the true survival probability (logit scale), by overall proportion of patients with an event. Pooled over Harrell's C (0.6 to 0.9), both censoring settings and the seven time points. Dashed line: 5%; labels: true survival at which the line crosses 5%."
+plM1$p1$logit
+```
+
+```{r}
+#| label: fig-supplement-16-coverage-n
+#| echo: false
+#| fig-cap: "Coverage of the 95% log-log confidence interval against $N/N_*$ (log scale; $N_*$ from the empirical variance over the replications), by overall proportion of patients with an event. Pooled over Harrell's C, censoring and time points. Left of the dotted line: $N_* > N$. The grey band is the range expected from Monte Carlo error alone."
+plot_coverage_N(resM, here::here("results"))
+```
+
+```{r}
+#| label: fig-supplement-16-admin
+#| echo: false
+#| fig-cap: "As the previous figure, separately for a common end of follow-up and staggered entry (administrative censoring); pooled over Harrell's C. The lines coincide."
+plot_admin(resM, here::here("results"))$logit
+```
+
+```{r}
+#| label: tbl-supplement-16-admin
+#| echo: false
+knitr::kable(admin_check(resM)$max_abs_diff, digits = 3, row.names = FALSE,
+  col.names = c("Overall proportion with event", "Largest difference in the percentage with N* > N", "Largest difference in coverage"),
+  caption = "Largest absolute difference between staggered entry and a common end of follow-up over the bins of the true survival probability (at least 20 predictions per bin).")
+```
+
+```{r}
+#| label: fig-supplement-16-share
+#| echo: false
+#| fig-cap: "Percentage of all predictions with $\\widehat{N}_* > N$ against the fraction of events observed, by Harrell's C and overall proportion of patients with an event (common end of follow-up). Harrell's C does not move the threshold in true survival, but changes how many patients lie above it."
+plot_share(resM, here::here("results"))
+```
+
+```{r}
+#| label: fig-supplement-16-threshold
+#| echo: false
+#| fig-cap: "True survival $S^*$ above which more than 5% of the predictions have $\\widehat{N}_* > N$, against the overall proportion of patients with an event (log-log scale on the risk $1 - S^*$). Points: one per Harrell's C, censoring setting and event rate; solid line: fitted $1 - S^* = a e^{b}$; dashed: proportional ($b = 1$)."
+plot_threshold(thr, here::here("results"))
+```
+
+```{r}
+#| label: fig-supplement-16-pgtn
+#| echo: false
+#| fig-cap: "Percentage of predictions with $\\widehat{N}_* > N$ as a function of the true survival probability (logit scale), by overall proportion of patients with an event (colour), Harrell's C (columns) and censoring (rows). Lines: pooled over the seven time points; dots: each time point (fraction of events observed) separately. The dashed line is 5%."
+plM$p1$logit
+```
+
+```{r}
+#| label: fig-supplement-16-coverage
+#| echo: false
+#| fig-cap: "Coverage of the 95% log-log confidence interval as a function of the true survival probability (logit scale), pooled over time points. Layout as in the previous figure. The grey band is the range expected from Monte Carlo error alone for a single coverage estimate."
+plM$p2$logit
+```
+
+```{r}
+#| label: tbl-supplement-16-limits
+#| echo: false
+lim <- S_limits(resM, tol = 0.05)
+lim <- lim[order(lim$admin, lim$e, lim$C), ]
+lim$admin <- ifelse(lim$admin, "Staggered entry", "Common end")
+knitr::kable(
+  lim[, c("admin", "e", "C", "N", "S_lower", "S_upper", "min_cov")], digits = 3, row.names = FALSE,
+  col.names = c("Censoring", "Proportion with event", "C", "N", "Lower limit of S", "Upper limit of S", "Minimum coverage within limits"),
+  caption = "Range of the true survival probability in which the probability that $\\widehat{N}_* > N$ is at most 5% (pooled over time points). NA: the probability did not exceed 5% in the observed range of survival probabilities."
+)
+```
+
+```{r}
+#| label: fig-supplement-16-by-fraction
+#| echo: false
+#| fig-cap: "Percentage of predictions with $\\widehat{N}_* > N$ against the true survival probability for each fraction of events observed (common end of follow-up, $C = 0.7$; colours as in the main figure)."
+plot_erate(resM[!resM$admin, ], here::here("results", "common_end"), scales = "logit")$p1$logit
+```
+
+```{r}
+#| label: tbl-supplement-16-spread
+#| echo: false
+knitr::kable(
+  e_spread(resM[!resM$admin, ]), digits = 2, row.names = FALSE,
+  col.names = c("Conditioning on", "Mean difference between event rates", "Maximum difference", "Cells"),
+  caption = "Difference in $P(\\widehat{N}_* > N)$ between overall event rates (5% to 90%), given the conditioning variable (common end of follow-up, $C = 0.6$ to $0.9$). A smaller difference means that the conditioning variable organizes the results better."
+)
+```
+
+## Sensitivity analyses
+
+These analyses were run for the reference scenario ($C = 0.7$ unless stated otherwise) and varied one factor at a time. Estimands, methods and performance measures were as in Simulation 2.
+
+**Number of predictors and noise predictors.** $k = 1, 3, 10$ continuous and $k$ binary true predictors, with and without $k$ added predictors unrelated to the outcome ($N = 1000$, 90% of patients with an event, common end of follow-up; design `oat`).
+
+**Weibull shape.** The reference scenario with only the shape changed ($\gamma = 0.7, 1, 1.5$; design `shape_only`). The Cox model is invariant to monotone transformations of time, so the estimates, and hence $N_*$, are identical up to the calibration of the scale. The shape can only matter when the censoring distribution is tied to the time scale, as in the next analysis.
+
+**Random censoring.** Administrative censoring off or on, combined with random censoring (loss to follow-up, independent exponential) of intensity 0 (none), 1 (regular; 10% of patients lost by the maximum follow-up if no event occurs first) or 5 (severe; five times the hazard of loss), at overall event rates of 10%, 30% and 60% and $C = 0.7$ (design `censoring`).
+
+```{r}
+#| label: sim-supplement-16-sens-run
+#| include: false
+cache1 <- here::here("results", "sim_guardrails.rds")
+if (file.exists(cache1)) {
+  res16 <- readRDS(cache1)
+} else {
+  res16 <- run_all(make_scen("oat"))
+  saveRDS(res16, cache1)
+}
+cacheS <- here::here("results", "sim_guardrails_shape.rds")
+if (file.exists(cacheS)) {
+  res16c <- readRDS(cacheS)
+} else {
+  res16c <- run_all(make_scen("shape_only"))
+  saveRDS(res16c, cacheS)
+}
+cacheC <- here::here("results", "sim_guardrails_cens.rds")
+if (file.exists(cacheC)) {
+  resC <- readRDS(cacheC)
+} else {
+  resC <- run_all(make_scen("censoring"))
+  saveRDS(resC, cacheC)
+}
+pl16 <- plot_sim(res16, here::here("results"))
+pl16c <- plot_shape(res16c, here::here("results"))
+plC <- plot_cens(resC, here::here("results"))
+```
+
+```{r}
+#| label: fig-supplement-16-settings
+#| echo: false
+#| fig-cap: "Percentage of predictions with $\\widehat{N}_* > N$ against the true survival (logit scale) for different numbers of predictors ($k$ continuous and $k$ binary) and with $k$ added noise predictors, for $C = 0.7$ and $C = 0.8$ and selected fractions of events observed."
+pl16$p3$logit
+```
+
+```{r}
+#| label: tbl-supplement-16-shape
+#| echo: false
+knitr::kable(
+  factor_effect(res16c, "shape"), digits = 3, row.names = FALSE,
+  col.names = c("Weibull shape", "Overall event rate", "Mean absolute difference", "Maximum absolute difference", "Cells"),
+  caption = "Difference in $P(\\widehat{N}_* > N)$ between each Weibull shape and shape 1, over cells of time point and band of true survival."
+)
+```
+
+```{r}
+#| label: fig-supplement-16-shape
+#| echo: false
+#| fig-cap: "Percentage of predictions with $\\widehat{N}_* > N$ against the true survival (logit scale) for Weibull shapes 0.7, 1 and 1.5, by fraction of events observed. All other settings are identical."
+pl16c$p1$logit
+```
+
+```{r}
+#| label: fig-supplement-16-cens
+#| echo: false
+#| fig-cap: "Percentage of predictions with $\\widehat{N}_* > N$ against the true survival (logit scale) under registry-style censoring: administrative censoring off or on, and random censoring of intensity 0, 1 and 5 ($C = 0.7$). Rows: overall proportion of patients with an event; columns: fraction of events observed."
+plC$p1$logit
+```
+
+```{r}
+#| label: fig-supplement-16-cens-coverage
+#| echo: false
+#| fig-cap: "Coverage of the 95% log-log confidence interval under registry-style censoring (as in the previous figure), pooled over time points."
+plC$p2$logit
+```
+
+
+# Supplement 17: Effective sample size from a bootstrapped variance
+
+The effective sample size $N_*$ in the main text uses the delta-method variance of the Cox model survival estimate (Equation 2 of the main text). Any other variance estimator can be used in its place. Here we compare the delta-method variance with the bootstrap variance for the colon cancer data, using both a non-parametric and a parametric bootstrap, to check that the effective sample size does not depend on the variance estimator.
+
+## Methods
+
+We used the colon cancer data of the main text (overall survival, 929 patients; number of positive nodes imputed once, as for Figure 3) and the four sequential Cox models of Section 3.3: (A) treatment; (B) treatment and adherence; (C) treatment, adherence and nodes; (D) treatment, adherence, nodes and age. For each model, survival was predicted for every patient in the development data at 1 to 7 years. The delta-method variance of $\widehat{S}(t \mid x)$ was taken from `survfit()` as in the main text.
+
+For the bootstrap variance, $B = 1000$ bootstrap samples were generated in one of two ways. In the non-parametric bootstrap the 929 patients were drawn with replacement. In the parametric bootstrap [@thomassen2025] the covariates of the 929 patients were kept and new outcomes were simulated from the Cox model fitted to the original data: event times were drawn from the fitted model with the Breslow estimate of the baseline hazard, and censoring times from the Kaplan-Meier estimate of the censoring distribution, independently of the covariates. In each bootstrap sample the same Cox model was refitted (Efron ties), the cumulative baseline hazard was estimated, and the survival probability was predicted for the *original* patients' covariate values. The bootstrap variance of $\widehat{S}(t \mid x)$ is the variance of these predictions over the bootstrap samples. For both variances the effective sample size is
+
+$$N_* = \frac{\widehat{S}(1 - \widehat{S})}{V(\widehat{S})},$$
+
+with $\widehat{S}$ the estimate from the original fit, so that the two estimates differ only in the variance. We compare them per patient and horizon by the ratio $N_*^{\text{boot}} / N_*^{\text{delta}}$ (summarised in the table). The Monte Carlo error of a variance estimated from $B = 1000$ samples is about $\sqrt{2/(B-1)} = 4.5\%$ (relative), so ratios within about $\pm 10\%$ of 1 are indistinguishable from this error. Neither bootstrap repeats the imputation of the number of nodes, so, like the delta-method variance, both are conditional on the model specification and the imputed data. The parametric bootstrap additionally assumes that the fitted Cox model and an independent censoring distribution describe the data.
+
+```{r}
+#| label: sim-supplement-17-run
+#| include: false
+source(here::here("code", "compile.R"))
+source(here::here("code", "bootstrap_ess.R"))
+cacheB <- here::here("results", "ess_bootstrap_colon.rds")
+if (file.exists(cacheB)) {
+  resB <- readRDS(cacheB)
+} else {
+  resB <- run_colon_bootstrap(years = 1:7, B = 1000)
+  dir.create(dirname(cacheB), showWarnings = FALSE, recursive = TRUE)
+  saveRDS(resB, cacheB)
+}
+smB <- summarise_boot(resB)
+```
+
+## Results
+
+```{r}
+#| label: fig-supplement-17-scatter-np
+#| echo: false
+#| fig-cap: "Effective sample size from the non-parametric bootstrap variance against effective sample size from the delta-method variance for all 929 patients, at 5 years, for the four models of Figure 3 (log-log scale). Dashed line: equality."
+plot_boot_scatter(resB, year = 5, type = "nonparametric")
+```
+
+```{r}
+#| label: fig-supplement-17-scatter-p
+#| echo: false
+#| fig-cap: "As Figure S17.1, with the variance from the parametric bootstrap."
+plot_boot_scatter(resB, year = 5, type = "parametric")
+```
+
+The two bootstraps and the delta-method variance give similar effective sample sizes (Figures S17.1 and S17.2). For models A and B, which contain only the binary treatment and adherence variables, the patients form a few groups and the estimates coincide. For models C and D, the bootstrap estimates follow the line of equality over most of the range, with the non-parametric bootstrap tending to give somewhat lower values than the delta-method variance for patients with a low effective sample size, i.e. patients with less common covariate values. The parametric bootstrap lies closer to the delta-method estimate. A few patients with a high delta-method $N_*$ have a much lower bootstrap $N_*$ in models C and D, in both bootstraps.
