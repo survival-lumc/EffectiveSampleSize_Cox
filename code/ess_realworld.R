@@ -447,7 +447,7 @@ plot_scatter <- function( r, max_pts = 3000, cross = TRUE, q = 0.5 ){
     scale_colour_manual(values = setNames(FRAC_PAL, levels(r$f_lab)), name = "Fraction of events observed, f") +
     guides(colour = guide_legend(nrow = 1, override.aes = list(alpha = 1, size = 3))) +
     facet_wrap(~ds_lab, ncol = if( nlevels(r$ds_lab) > 8 ) 3 else 4) +
-    labs(x = "Predicted survival S(t)", y = "N* / N") +
+    labs(x = "Predicted survival S(t|x)", y = "N* / N") +
     theme_art()
 }
 

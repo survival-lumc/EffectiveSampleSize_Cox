@@ -3,3 +3,12 @@ supplement.markdown
 .Rproj.user
 /results/
 results/
+/.quarto/
+**/*.quarto_ipynb
+/manuscript_files/
+/images/
+/_manuscript/
+supplement.docx
+manuscript.docx
+biomed-central.csl
+/_freeze/

@@ -36,6 +36,12 @@ FRACS   <- c( 0.05, 0.10, 0.25, 0.40, 0.60, 0.75, 0.90 )   # fraction of all eve
 S_BANDS <- c( 0, 0.01, 0.05, 0.20, 0.50, 0.80, 0.90, 0.95, 0.98, 1 )   # extra resolution at high S
 R_REP   <- 1000          # replications per scenario: SET FROM pilot_mc() (see bottom)
 N_PROF  <- 200
+PROF_Q  <- ppoints( N_PROF )   # covariate profiles: quantiles (i - 0.5)/N_PROF of the true linear predictor (0.25% ... 99.75%)
+# Profiles at the extreme quantiles of the linear predictor (below the 1st and above the 99th percentile) are
+# extrapolations in a sample of this size. TRIM_PROFILES = FALSE keeps all 200 profiles in every summary and figure
+# (default, used for the article); TRUE leaves out the profiles outside quantiles 0.01-0.99. Every summary and plot
+# function has a `trim` argument that defaults to this setting; code/check_trim.R compares the two for Figures 6 and 7.
+TRIM_PROFILES <- FALSE
 D_EVENTS <- 500          # event-rate design: N = D_EVENTS / e, i.e. ~500 events in every scenario
 
 # Registry-style censoring (design "censoring"; columns `admin` and `rc` of the scenario table)
@@ -93,7 +99,7 @@ make_scen <- function( design = c("oat", "full", "event_rate", "shape_only", "ce
   }
   if( design == "factorial" ){
     if( is.null(C) ) C <- 0.8                                   # C hardly moves the curves; sensitivity: C = c(0.6, 0.9)
-    if( is.null(e) ) e <- c( 0.01, 0.05, 0.1, 0.3, 0.6, 0.9 )   # 0.01: N = 50,000 at D = 500 (heavy; drop it or lower D to save time)
+    if( is.null(e) ) e <- c( 0.01, 0.05, 0.1, 0.3, 0.6, 0.9, 0.99 )   # 0.01: N = 50,000 at D = 500 (heavy; drop it or lower D to save time)
     s <- expand.grid( C = C, e = e, admin = c(FALSE, TRUE), shape = 1, k = 3, noise = 0, rc = 0,
                       KEEP.OUT.ATTRS = FALSE )
     s$N <- round(D / s$e)
@@ -186,8 +192,7 @@ setup_scenario <- function( C, N, e, shape, k, noise, admin = FALSE, rc = 0, n_p
   cens <- c( events = mean(obs), admin_cens = mean(!obs & !lt), ltfu = mean(!obs & lt),
              median_fu = median(pmin(T, ct)) )
   t_f <- unname(quantile(T[obs], FRACS))                    # fixed horizons: fractions of the OBSERVED events
-  q   <- c( 0.0005, 0.002, seq(0.01, 0.99, length.out = N_PROF - 4), 0.998, 0.9995 )   # incl. extremes
-  pos <- order(lp)[pmax(1, round(q * n_pop))]
+  pos <- order(lp)[pmax(1, round(PROF_Q * n_pop))]
   prof <- X[pos, , drop = FALSE]; lp_prof <- lp[pos]
   S_true <- outer( exp(lp_prof), t_f^shape, function(h, H) exp(-h * H) )   # profiles x horizons
   list( C = C, N = N, e = e, shape = shape, k = k, noise = noise, admin = admin, rc = rc, kappa = kappa,
@@ -356,16 +361,15 @@ run_all <- function( scen = SCEN, R = R_REP, workers = max(1, parallel::detectCo
 KEYS <- c( "C", "N", "e", "shape", "k", "noise" )
 band_of <- function( S ) cut( S, S_BANDS, include.lowest = TRUE, right = FALSE )
 
-# Profiles sit at quantiles of the true linear predictor. The most extreme ones (below the 1st
-# and above the 99th percentile) are extrapolations in a sample of ~1000 patients, so by default
-# the summaries use quantiles 0.01-0.99 only (trim = FALSE keeps everything).
-PROF_Q <- c( 0.0005, 0.002, seq(0.01, 0.99, length.out = N_PROF - 4), 0.998, 0.9995 )
-trim_core <- function( res, trim = TRUE, q = c(0.01, 0.99) ){
+# Profiles sit at quantiles of the true linear predictor. trim = TRUE restricts the summaries to quantiles 0.01-0.99
+# (the most extreme profiles are extrapolations in a sample of this size); trim = FALSE keeps everything.
+# The default is TRIM_PROFILES (see SETTINGS).
+trim_core <- function( res, trim = TRIM_PROFILES, q = c(0.01, 0.99) ){
   res$lp_q <- PROF_Q[res$profile]
   if( trim ) res[res$lp_q >= q[1] & res$lp_q <= q[2], ] else res
 }
 
-summarise_sim <- function( res, trim = TRUE ){
+summarise_sim <- function( res, trim = TRIM_PROFILES ){
   res <- trim_core( res, trim ); res$S_band <- band_of(res$S_true)
   aggregate( cbind(P_gt_N, P_gt_1.25N, Ntrue_ratio, Nhat_q95_ratio, Nhat_over_Ntrue,
                    var_ratio, coverage) ~ C + N + e + shape + k + noise + frac + S_band,
@@ -376,7 +380,7 @@ summarise_sim <- function( res, trim = TRUE ){
 #     most `tol` at f_min AND at all larger event fractions observed for that band.
 #     f_first = smallest event fraction at which the band is observed at all. If f_min == f_first
 #     the band is never a problem once it exists.
-fmin_by_band <- function( res, tol = 0.05, trim = TRUE ){
+fmin_by_band <- function( res, tol = 0.05, trim = TRIM_PROFILES ){
   res <- trim_core( res, trim ); res$S_band <- band_of(res$S_true)
   keys <- intersect( c(KEYS, "admin", "rc"), names(res) )      # admin, rc: censoring design
   g <- aggregate( res["P_gt_N"], res[c(keys, "S_band", "frac")], FUN = mean )
@@ -390,7 +394,7 @@ fmin_by_band <- function( res, tol = 0.05, trim = TRUE ){
 }
 
 # A2: reliability by S band (restricted to event fractions >= f_min_use)
-slow_table <- function( res, f_min_use = 0.25, trim = TRUE ){
+slow_table <- function( res, f_min_use = 0.25, trim = TRIM_PROFILES ){
   res <- trim_core( res, trim )
   r <- res[res$frac >= f_min_use & res$S_true > 1e-6, ]       # S below 1e-6: variance is 0 in floating point
   r$S_band <- band_of(r$S_true)
@@ -399,7 +403,7 @@ slow_table <- function( res, f_min_use = 0.25, trim = TRUE ){
 }
 
 # Bias of S-hat by band (to understand under-coverage at high C): mean(S_hat) - S_true
-bias_table <- function( res, trim = TRUE ){
+bias_table <- function( res, trim = TRIM_PROFILES ){
   res <- trim_core( res, trim ); res$S_band <- band_of(res$S_true)
   res$bias <- res$S_hat_mean - res$S_true
   aggregate( cbind(bias, coverage) ~ C + S_band, data = res, FUN = mean )
@@ -407,7 +411,7 @@ bias_table <- function( res, trim = TRUE ){
 
 # Does a design factor (k, noise; shape in design 'shape_only') change P(N*-hat > N)? Compares each level with the
 # reference level, cell by cell (C x event fraction x S band; cells with >= min_n profiles).
-factor_effect <- function( res, factor = c("shape", "k", "noise"), e = REF$e, min_n = 5, trim = TRUE ){
+factor_effect <- function( res, factor = c("shape", "k", "noise"), e = REF$e, min_n = 5, trim = TRIM_PROFILES ){
   factor <- match.arg(factor)
   r <- trim_core( res, trim )
   r <- r[r$e %in% e, ]
@@ -428,7 +432,7 @@ factor_effect <- function( res, factor = c("shape", "k", "noise"), e = REF$e, mi
 # For each conditioning set, P(N*-hat > N) is computed per cell and e level; the spread (max - min)
 # across the e levels in a cell measures how much e still matters. A smaller spread = a better
 # organising variable.
-e_spread <- function( res, min_n = 5, trim = TRUE ){
+e_spread <- function( res, min_n = 5, trim = TRIM_PROFILES ){
   r <- trim_core( res, trim ); r <- r[r$shape == 1 & r$k == 3 & r$noise == 0, ]
   r$S_band <- band_of(r$S_true)
   spread <- function( vars ){
@@ -472,7 +476,7 @@ bin_s <- function( d, vars, groups, sc, width = sc$width, min_n = 5 ){
 frac_lab <- function( f ) factor( f, levels = FRACS, labels = paste0(100 * FRACS, "% of events") )
 
 # returns list(p1 = list(logit=, cloglog=, log=, linear=), p2 = ..., p3 = ...); PNGs go to outdir
-plot_sim <- function( res, outdir = "results/", scales = names(S_SCALE), trim = TRUE,
+plot_sim <- function( res, outdir = "results/", scales = names(S_SCALE), trim = TRIM_PROFILES,
                       fracs_show = c(0.10, 0.25, 0.40, 0.60) ){
   dir.create( outdir, showWarnings = FALSE, recursive = TRUE )
   res <- trim_core( res, trim )
@@ -509,7 +513,7 @@ plot_sim <- function( res, outdir = "results/", scales = names(S_SCALE), trim = 
       geom_hline(yintercept = 0.95, linetype = 2) +
       geom_line(data = b2, aes(xbin, coverage, colour = factor(C)), linewidth = 1) +
       coord_cartesian(xlim = sc$xlim, ylim = c(0.88, 1)) + scale_x_S(sc) +
-      labs(y = "Coverage of the 95% log-log CI", colour = "Harrell's C",
+      labs(y = "Coverage of the 95% log(\u2212log) confidence interval", colour = "Harrell's C",
            subtitle = sprintf("grey band: +/- 1.96 Monte Carlo SE of one coverage estimate (R = %.0f); dots: profiles x horizons", Rm)) +
       theme_art(11)
     ggsave(file.path(outdir, sprintf("sim_guardrails_coverage_%s.png", nm)), p2, width = 10, height = 6, dpi = 200, bg = "white")
@@ -533,7 +537,7 @@ plot_sim <- function( res, outdir = "results/", scales = names(S_SCALE), trim = 
 }
 
 # Event-rate study (design "event_rate"). Returns list(p1, p2, p3, p4); p1/p3/p4 per x-axis scale.
-plot_erate <- function( res, outdir = "results/", scales = c("logit", "linear"), trim = TRUE,
+plot_erate <- function( res, outdir = "results/", scales = c("logit", "linear"), trim = TRIM_PROFILES,
                         fracs_show = c(0.10, 0.25, 0.40, 0.60, 0.90), C_show = 0.7 ){
   dir.create( outdir, showWarnings = FALSE, recursive = TRUE )
   res <- trim_core( res, trim )
@@ -613,12 +617,12 @@ plot_erate <- function( res, outdir = "results/", scales = c("logit", "linear"),
 }
 
 # Shape-only study (design "shape_only"): everything but the Weibull shape is kept as in REF.
-shape_table <- function( res, trim = TRUE ){
+shape_table <- function( res, trim = TRIM_PROFILES ){
   res <- trim_core( res, trim ); res <- res[res$S_true > 1e-6, ]; res$S_band <- band_of(res$S_true)
   aggregate( cbind(P_gt_N, var_ratio, coverage, Nhat_over_Ntrue) ~ shape + S_band, data = res, FUN = mean )
 }
 
-plot_shape <- function( res, outdir = "results/", scales = c("logit", "linear"), trim = TRUE,
+plot_shape <- function( res, outdir = "results/", scales = c("logit", "linear"), trim = TRIM_PROFILES,
                         fracs_show = c(0.10, 0.25, 0.40, 0.60, 0.90) ){
   dir.create( outdir, showWarnings = FALSE, recursive = TRUE )
   res <- trim_core( res, trim )
@@ -645,7 +649,7 @@ plot_shape <- function( res, outdir = "results/", scales = c("logit", "linear"),
       annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0.95 - mc, ymax = 0.95 + mc, fill = "grey85") +
       geom_hline(yintercept = 0.95, linetype = 2) + geom_line(linewidth = 0.9) +
       coord_cartesian(xlim = sc$xlim, ylim = c(0.9, 1)) + scale_x_S(sc) +
-      labs(y = "Coverage of the 95% log-log CI", colour = NULL, linetype = NULL) +
+      labs(y = "Coverage of the 95% log(\u2212log) confidence interval", colour = NULL, linetype = NULL) +
       theme_art(11)
     ggsave(file.path(outdir, sprintf("sim_shape_coverage_%s.png", nm)), p2, width = 9, height = 5.5, dpi = 200, bg = "white")
     out$p2[[nm]] <- p2
@@ -656,7 +660,7 @@ plot_shape <- function( res, outdir = "results/", scales = c("logit", "linear"),
 ####################### MAIN SIMULATION (DESIGN "FACTORIAL"): C X OVERALL EVENT RATE X ADMINISTRATIVE CENSORING #####################
 ADMIN_LAB <- c( "No censoring", "Uniform censoring" )
 
-main_data <- function( res, trim = TRUE ){
+main_data <- function( res, trim = TRIM_PROFILES ){
   r <- trim_core( res, trim )
   if( is.null(r$admin) ) r$admin <- FALSE                       # results from older designs
   if( !is.null(r$rc) ) r <- r[r$rc == 0, ]
@@ -671,7 +675,7 @@ main_data <- function( res, trim = TRUE ){
 #     dots = one point per fraction of events observed (dots = FALSE: lines only).
 #     Panels: rows = administrative censoring, columns = C; colour = overall proportion with an event.
 # p2: coverage of the 95% log-log CI, same layout (pooled over fractions).
-plot_main <- function( res, outdir = "results/", scales = c("logit", "linear"), trim = TRUE, dots = TRUE ){
+plot_main <- function( res, outdir = "results/", scales = c("logit", "linear"), trim = TRIM_PROFILES, dots = TRUE ){
   dir.create( outdir, showWarnings = FALSE, recursive = TRUE )
   r <- main_data( res, trim )
   mc <- 1.96 * sqrt(0.95 * 0.05 / min(r$R))
@@ -702,7 +706,7 @@ plot_main <- function( res, outdir = "results/", scales = c("logit", "linear"), 
       geom_hline(yintercept = 0.95, linetype = 2, colour = "grey30") + geom_line(linewidth = 0.8) +
       facet_grid(adm_lab ~ Cl, labeller = lab) + coord_cartesian(xlim = sc$xlim, ylim = c(0.9, 1)) +
       scale_x_S(sc) + cols +
-      labs(y = "Coverage of the 95% log-log CI",
+      labs(y = "Coverage of the 95% log(\u2212log) confidence interval",
            subtitle = sprintf("grey band: +/- 1.96 Monte Carlo SE of one coverage estimate (R = %.0f)", min(r$R))) +
       guides(colour = guide_legend(nrow = 1)) +
       theme_art(11)
@@ -738,7 +742,7 @@ S_cross_main <- function( r, tol = 0.05, width = 0.2, min_n = 20, group = "el" )
   }) )
 }
 
-plot_main1 <- function( res, outdir = "results/", scales = c("logit", "linear"), trim = TRUE,
+plot_main1 <- function( res, outdir = "results/", scales = c("logit", "linear"), trim = TRIM_PROFILES,
                         admin = c("pooled", "common", "staggered"), dots = FALSE, tol = 0.05, label = TRUE ){
   admin <- match.arg(admin)
   dir.create( outdir, showWarnings = FALSE, recursive = TRUE )
@@ -781,7 +785,7 @@ plot_main1 <- function( res, outdir = "results/", scales = c("logit", "linear"),
       annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0.95 - mc, ymax = 0.95 + mc, fill = "grey88") +
       geom_hline(yintercept = 0.95, linetype = 2, colour = "grey30") + geom_line(linewidth = 0.9) +
       coord_cartesian(xlim = sc$xlim, ylim = c(0.9, 1)) + scale_x_S(sc) + cols +
-      labs(y = "Coverage of the 95% log-log CI",
+      labs(y = "Coverage of the 95% log(\u2212log) confidence interval",
            subtitle = sprintf("grey band: +/- 1.96 Monte Carlo SE of one coverage estimate (R = %.0f)", min(r$R))) +
       guides(colour = guide_legend(nrow = 1)) + theme_art(11)
     ggsave(file.path(outdir, sprintf("sim_main1_coverage_%s.png", nm)), p2, width = 8.5, height = 5.5, dpi = 300, bg = "white")
@@ -793,7 +797,7 @@ plot_main1 <- function( res, outdir = "results/", scales = c("logit", "linear"),
 
 # Supplement: does administrative censoring change anything? One panel, line type = censoring, colour = event
 # rate, pooled over C. `admin_check()` gives the largest absolute difference per event rate over the bins.
-plot_admin <- function( res, outdir = "results/", scales = "logit", trim = TRUE, min_n = 5 ){
+plot_admin <- function( res, outdir = "results/", scales = "logit", trim = TRIM_PROFILES, min_n = 5 ){
   dir.create( outdir, showWarnings = FALSE, recursive = TRUE )
   r <- main_data( res, trim )
   cols <- scale_colour_manual(values = ramp_pal(nlevels(r$el)), name = "Event rate, 1 \u2212 S(\u03c4)")
@@ -821,7 +825,7 @@ plot_admin <- function( res, outdir = "results/", scales = "logit", trim = TRUE,
 # Supplement / alternative main figure: the same percentage against the predicted RISK RELATIVE TO THE EVENT RATE,
 # (1 - S) / e on a log axis. If the survival at which N* > N starts is proportional to e (1 - S* = b e), the lines
 # of the different event rates fall on top of each other. Colour = event rate, line type = censoring.
-plot_relative <- function( res, outdir = "results/", trim = TRUE, width = 0.1, min_n = 20, tol = 0.05 ){
+plot_relative <- function( res, outdir = "results/", trim = TRIM_PROFILES, width = 0.1, min_n = 20, tol = 0.05 ){
   dir.create( outdir, showWarnings = FALSE, recursive = TRUE )
   r <- main_data( res, trim )
   r$xbin <- round( log10((1 - r$S_true) / r$e) / width ) * width
@@ -846,7 +850,7 @@ plot_relative <- function( res, outdir = "results/", trim = TRUE, width = 0.1, m
   p
 }
 
-admin_check <- function( res, trim = TRUE, width = 0.4, min_n = 20 ){
+admin_check <- function( res, trim = TRIM_PROFILES, width = 0.4, min_n = 20 ){
   r <- main_data( res, trim )
   b <- bin_s( r, c("P_gt_N", "coverage"), c("el", "admin"), S_SCALE$logit, width = width, min_n = min_n )
   w <- merge( b[!b$admin, ], b[b$admin, ], by = c("el", "xbin"), suffixes = c("_common", "_staggered") )
@@ -858,7 +862,7 @@ admin_check <- function( res, trim = TRUE, width = 0.4, min_n = 20 ){
 # panels = overall event rate. This is where C matters: it changes how many patients lie in the high-S range.
 # (Profiles are equally spaced quantiles of the linear predictor, 1st-99th percentile, so every profile
 # stands for the same share of the population.)
-plot_share <- function( res, outdir = "results/", trim = TRUE, admin = c("common", "staggered", "pooled") ){
+plot_share <- function( res, outdir = "results/", trim = TRIM_PROFILES, admin = c("common", "staggered", "pooled") ){
   admin <- match.arg(admin)
   dir.create( outdir, showWarnings = FALSE, recursive = TRUE )
   r <- main_data( res, trim )
@@ -878,7 +882,7 @@ plot_share <- function( res, outdir = "results/", trim = TRUE, admin = c("common
 # threshold, 1 - S*, is a power of e,   1 - S* = a * e^b   (b = 1: proportional to e, i.e. the threshold is a
 # fixed multiple of the population's overall risk). Fitted by least squares on the log-log scale to the
 # crossings of every (C, admin, e) combination; `b1` is the fit with b fixed at 1 (1 - S* = c * e).
-fit_threshold <- function( res, tol = 0.05, trim = TRUE ){
+fit_threshold <- function( res, tol = 0.05, trim = TRIM_PROFILES ){
   r <- main_data( res, trim )
   r$grp <- paste( r$C, r$admin, r$e )
   cr <- S_cross_main( r, tol, group = "grp" )
@@ -918,7 +922,7 @@ plot_threshold <- function( ft, outdir = "results/" ){
 # (what the variance should be; no conditioning on the estimate); "hat": median of the estimated N* over the
 # replications (what a user would see; the median is the same for every replication of a profile and time point).
 # x = "N/N*" gives the reciprocal.
-plot_coverage_N <- function( res, outdir = "results/", trim = TRUE, nstar = c("true", "hat"),
+plot_coverage_N <- function( res, outdir = "results/", trim = TRIM_PROFILES, nstar = c("true", "hat"),
                              x = c("N*/N", "N/N*"), dots = TRUE, tail = 0.005, h = 0.2, xlim = c(0.025, 40) ){
   nstar <- match.arg(nstar); x <- match.arg(x)
   dir.create( outdir, showWarnings = FALSE, recursive = TRUE )
@@ -948,7 +952,7 @@ plot_coverage_N <- function( res, outdir = "results/", trim = TRUE, nstar = c("t
                        guide = guide_axis(check.overlap = TRUE)) +
     scale_colour_manual(values = ramp_pal(nlevels(r$el)), name = "Event rate, 1 \u2212 S(\u03c4)") +
     coord_cartesian(xlim = log10(xlim), ylim = c(0.9, 1)) +                # fixed x-axis (N*/N)
-    labs(y = "Coverage of the 95% log-log CI") +
+    labs(y = "Coverage of the 95% log(\u2212log) confidence interval") +
     guides(colour = guide_legend(nrow = 1, override.aes = list(alpha = 1))) + theme_art(11)
   ggsave(file.path(outdir, sprintf("sim_main_coverage_N_%s.png", nstar)), p, width = 8.5, height = 5.5, dpi = 300, bg = "white")
   p
@@ -958,7 +962,7 @@ plot_coverage_N <- function( res, outdir = "results/", trim = TRUE, nstar = c("t
 # per scenario: S_lower / S_upper = lower edge of the first S bin (logit scale, scanning away from S = 0.5)
 # in which P exceeds tol; NA = P never exceeds tol within the range of S that occurs. min_cov = lowest
 # coverage of the 95% CI in the bins within [S_lower, S_upper].
-S_limits <- function( res, tol = 0.05, width = 0.25, trim = TRUE, min_frac = 0, min_n = 5 ){
+S_limits <- function( res, tol = 0.05, width = 0.25, trim = TRIM_PROFILES, min_frac = 0, min_n = 5 ){
   r <- main_data( res, trim ); r <- r[r$frac >= min_frac & r$S_true > 1e-6 & r$S_true < 1 - 1e-9, ]
   r$xbin <- floor(qlogis(r$S_true) / width) * width + width / 2
   key <- c( "C", "N", "e", "admin" )
@@ -990,14 +994,14 @@ cens_lab <- function( admin, rc ) factor( paste0(ifelse(admin, "uniform censorin
                                           levels = c(outer(c("no censoring", "uniform censoring"), c(0, 1, 5), function(a, r) paste0(a, ", rc = ", r))) )
 
 # P(N*-hat > N), variance ratio and coverage by censoring setting, e and S band (event fractions >= f_min_use)
-cens_table <- function( res, f_min_use = 0.25, trim = TRUE ){
+cens_table <- function( res, f_min_use = 0.25, trim = TRIM_PROFILES ){
   r <- trim_core( res, trim ); r <- r[r$frac >= f_min_use & r$S_true > 1e-6, ]; r$S_band <- band_of(r$S_true)
   aggregate( cbind(P_gt_N, var_ratio, coverage, Nhat_over_Ntrue) ~ e + admin + rc + S_band, data = r, FUN = mean )
 }
 
 # Returns list(p1, p2, p3); p1/p2 per x-axis scale. p1: P(N*-hat > N) vs true S, rows = e, columns = event
 # fraction, colour = censoring setting. p2: coverage vs S. p3: P vs event fraction within S bands.
-plot_cens <- function( res, outdir = "results/", scales = c("logit", "linear"), trim = TRUE,
+plot_cens <- function( res, outdir = "results/", scales = c("logit", "linear"), trim = TRIM_PROFILES,
                        fracs_show = c(0.10, 0.25, 0.40, 0.60, 0.90), C_show = 0.7 ){
   dir.create( outdir, showWarnings = FALSE, recursive = TRUE )
   res <- trim_core( res, trim ); res <- res[res$C == C_show, ]
@@ -1025,7 +1029,7 @@ plot_cens <- function( res, outdir = "results/", scales = c("logit", "linear"), 
       scale_linetype_manual(values = rep(c("solid", "22"), 3)) +
       scale_colour_manual(values = rep(ramp_pal(3), each = 2)) +
       coord_cartesian(xlim = sc$xlim, ylim = c(0.88, 1)) + scale_x_S(sc) +
-      labs(y = "Coverage of the 95% log-log CI", colour = NULL, linetype = NULL) +
+      labs(y = "Coverage of the 95% log(\u2212log) confidence interval", colour = NULL, linetype = NULL) +
       theme_art(11)
     ggsave(file.path(outdir, sprintf("sim_cens_coverage_%s.png", nm)), p2, width = 12, height = 5.5, dpi = 200, bg = "white")
     out$p2[[nm]] <- p2

@@ -1,8 +1,16 @@
 ---
 title: "Supplementary Materials"
-format: 
-  docx:
-    number-sections: true
+subtitle: "Effective sample size for predictions based on the Cox survival model: insights into individual uncertainty"
+bibliography: references.bib
+csl: american-medical-association.csl
+number-sections: false
+toc: true
+toc-depth: 1
+toc-title: "Contents"
+format:
+  docx: default
+  pdf:
+    geometry: margin=2.5cm
 execute:
   echo: false
   warning: false
@@ -13,19 +21,25 @@ execute:
 #| label: setup
 #| include: false
 
-knitr::opts_chunk$set(
-  results = 'markup',
-  error = FALSE
-)
+# This file only reads results; the slow analyses are run once by code/run_results.R and saved in results/.
+knitr::opts_chunk$set(results = 'markup', error = FALSE, echo = FALSE, warning = FALSE, message = FALSE, dpi = 300)
 source("code/compile.R")
 options(knitr.table.format = "pandoc")
-options(prType='html')
 library(here)
-# library(tinytex) # Removed to avoid Docx conflicts`
+
+load_res <- function( file ){
+  path <- here::here( "results", file )
+  if( !file.exists(path) ) stop( "Missing ", path, ". Run code/run_results.R first." )
+  readRDS( path )
+}
+f2 <- function( x, d = 2 ) formatC( x, digits = d, format = "f" )
+fn <- function( x ) format(round(x), big.mark = ",", scientific = FALSE, trim = TRUE)   # whole numbers, no scientific notation
 ```
 
+{{< pagebreak >}}
 
 # Supplement 1: 4D PICTURE Collaborators
+
 The scientific members of the 4D PICTURE consortium who are not authors on this manuscript. Names and affiliations are as follows:
 
 Gaby Sroczynski$^{1,2}$, Uwe Siebert$^{1,2,3,4}$, Roberto Pazo-Cid$^{5,6,7}$, Lára R. Hallsson$^{1,2}$, Michel W. Wouters$^{8}$, Iñaki Alvarez Busto$^{5,6,7}$, Lennart Koch$^{1,2}$, Mette Byg Josefsen$^{9}$, Yassin Engelberts$^{10}$, Yufeng Liu$^{11}$, Claudia Cruz Oliveira$^{10}$, Elfi M. Verheul$^{10}$, Barbara Perić$^{12}$, Anne Stiggelbout$^{8}$, Ida Korfage$^{10}$, Kasper Frank$^{9}$, Tamara Wit$^{8}$, Amara Callistus Nwosu$^{13,14}$, Ellen Kapiteijn$^{15}$, Frank Doornkamp$^{16}$, Judith Rietjens$^{10, 17}$, Suzan Verberne$^{18}$, Carlos Romero-Piqueras$^{19}$
@@ -68,1094 +82,718 @@ Gaby Sroczynski$^{1,2}$, Uwe Siebert$^{1,2,3,4}$, Roberto Pazo-Cid$^{5,6,7}$, L�
 
 ^19^ Fractal Strategy, Zaragoza, Spain
 
+{{< pagebreak >}}
+
 # Supplement 2: Variance of the Cox model prediction
-In the article, we assume the Cox model variance is estimated using the delta method. We use the derivation from the book \textit{Statistical Models Based on Counting Processes} by Andersen, Borgan, Gill and Keiding. Using this method, the variance of a Cox model prediction for the new patient is:
+
+In the article, we assume the Cox model variance is estimated using the delta method. We use a standard derivation (from the book *Statistical Models Based on Counting Processes* by Andersen, Borgan, Gill and Keiding[@andersen1993]). Using this method, the variance of a Cox model prediction for a new patient is:
 
 $$
-V_{Cox}(\hat S_{new}(t)) = V(\hat S(t|x_{new})|\boldsymbol{\beta}) + \left. \frac{\partial S}{\partial \boldsymbol{\beta}} \right|_{\boldsymbol{\beta}=\hat{\boldsymbol{\beta}}}^\top V(\hat{\boldsymbol{\beta}}) \left. \frac{\partial S}{\partial \boldsymbol{\beta}} \right|_{\boldsymbol{\beta}=\hat{\boldsymbol{\beta}}}
+V_{Cox}(\hat S_{new}(t)) = V(\hat S(t|\mathbf{x}_{new})|\boldsymbol{\beta}) + \left. \frac{\partial S(t|\mathbf{x}_{new})}{\partial \boldsymbol{\beta}} \right|_{\boldsymbol{\beta}=\hat{\boldsymbol{\beta}}}^\top V(\hat{\boldsymbol{\beta}}) \left. \frac{\partial S(t|\mathbf{x}_{new})}{\partial \boldsymbol{\beta}} \right|_{\boldsymbol{\beta}=\hat{\boldsymbol{\beta}}}
 $$
 
-where $V(\hat{S}(t|x_{\text{new}})|\beta)$ is the variance of the survival function for a patient with covariates $x_{new}$, ignoring uncertainty in $\hat{\beta}$. The second term of the sum concerns the variance due to coefficient estimation and how this variance impacts the survival function by looking at the gradient of the survival function. The first term of the variance is given by:
+where $V(\hat{S}(t|\mathbf{x}_{\text{new}})|\beta)$ is the variance of the survival function for a patient with covariates $\mathbf{x}_{new}$, ignoring uncertainty in $\hat{\beta}$. The second term of the sum concerns the variance due to coefficient estimation, and how this variance impacts the survival function through the gradient of the survival function. The first term of the variance is given by:
 
 $$
 V(\hat{S}(t|\mathbf{x}_{\text{new}})|\hat{\boldsymbol{\beta}}) = \hat{S}^2(t|\mathbf{x}_{\text{new}}) \exp(2\hat{\boldsymbol{\beta}}^\top \mathbf{x}_{\text{new}}) \sum_{j:t_j \le t} \frac{d_j}{\left(\sum_{i \in R_j} \exp(\hat{\boldsymbol{\beta}}^\top \mathbf{x}_i)\right)^2}
 $$
 
-which is the Aalen formula for the variance of the baseline survival function based on the risk-weighted number at risk, multiplied by the risk score of our new patient.
+which is the Aalen formula for the variance of the baseline survival function, based on the risk-weighted number at risk, multiplied by the risk score of our new patient.
 
-The uncertainty in $\hat{S}_{\text{new}}(t)$ caused by the estimation of the coefficients depends on the variance of the coefficients and the gradient of the survival function with respect to the coefficients. The variance of the estimated coefficients $V(\hat{\beta})$ is asymptotically equal to the inverse Fisher information matrix $I(\hat{\beta})^{-1}$. Finally, we can estimate the gradient of the survival function with respect to the coefficient by:
+The uncertainty in $\hat{S}_{\text{new}}(t)$ caused by the estimation of the coefficients depends on the variance of the coefficients and on the gradient of the survival function with respect to the coefficients. The variance of the estimated coefficients $V(\hat{\beta})$ is asymptotically equal to the inverse Fisher information matrix $I(\hat{\beta})^{-1}$. We can estimate the gradient of the survival function with respect to the coefficients by:
 
 $$
-\left. \frac{\partial \hat{S}(t|x_{\text{new}})}{\partial \beta}\right|_{\boldsymbol{\beta}=\hat{\boldsymbol{\beta}}} = \exp(\beta^\top x_{\text{new}}) w
+\left. \frac{\partial \hat{S}(t|\mathbf{x}_{\text{new}})}{\partial \beta}\right|_{\boldsymbol{\beta}=\hat{\boldsymbol{\beta}}} = \hat{S}(t|\mathbf{x}_{\text{new}}) \exp(\hat\beta^\top \mathbf{x}_{\text{new}}) w
 $$
-
 
 where $w = (w_1, \dots, w_p)$ is a vector of partial derivatives, with $w_q$ the partial derivative of the survival function in the direction of $\beta_q$ for $q \in \{1, \dots, p\}$ with:
 
 $$
-w_q = \sum_{j:t_j \le t} \frac{1}{\sum_{i \in R_j} \exp(\hat\beta^\top x_i)} \left( \overline{x}_q - x_{\text{new},q} \right)
+w_q = \sum_{j:t_j \le t} \frac{d_j}{\sum_{i \in R_j} \exp(\hat\beta^\top \mathbf{x}_i)} \left( \overline{x}_{j,q} - x_{\text{new},q} \right)
 $$
 
-where $\overline{x}_q$ is the risk-weighted mean of $x_{j,q}$'s ($\overline{x}_q=\frac{\sum_{i \in R_j} x_{i,q} \exp(\hat\beta^\top x_i)}{\sum_{i \in R_j} \exp(\hat\beta^\top x_i)}$), which are the $q$-th covariate for individuals $j$. Together, we have that the effective sample size for a Cox model prediction of a patient with covariate values $x_{\text{new}}$ at time $t$ is:
+where $\overline{x}_{j,q}$ is the risk-weighted mean of the $q$-th covariate in the risk set at time $t_j$: $\overline{x}_{j,q}=\frac{\sum_{i \in R_j} x_{i,q} \exp(\hat\beta^\top \mathbf{x}_i)}{\sum_{i \in R_j} \exp(\hat\beta^\top \mathbf{x}_i)}$. Together, we have that the effective sample size for a Cox model prediction of a patient with covariate values $\mathbf{x}_{\text{new}}$ at time $t$ is:
 
 $$
-N_*(t, x_{\text{new}}) = \frac{\hat{S}_{\text{new}}(t)(1-\hat{S}_{\text{new}}(t))}{\exp(2\hat\beta^\top x_{\text{new}}) \hat{S}_{\text{new}}^2(t) \left[ \sum_{j:t_j \le t} \frac{d_j}{(\sum_{i \in R_j} \exp(\hat\beta^\top x_i))^2} + w^\top I(\hat{\beta})^{-1} w \right]}.
+N_*(t, \mathbf{x}_{\text{new}}) = \frac{\hat{S}_{\text{new}}(t)(1-\hat{S}_{\text{new}}(t))}{\exp(2\hat\beta^\top \mathbf{x}_{\text{new}}) \hat{S}_{\text{new}}^2(t) \left[ \sum_{j:t_j \le t} \frac{d_j}{(\sum_{i \in R_j} \exp(\hat\beta^\top \mathbf{x}_i))^2} + w^\top I(\hat{\beta})^{-1} w \right]}.
 $$
 
+{{< pagebreak >}}
 
-# Supplement 3: Efficiency Breslow vs Nelson-Aalen
+# Supplement 3: Efficiency of the Breslow estimator compared to the Nelson-Aalen estimator
 
-To understand why the effective sample size $N_*$ can exceed the development sample size $N$, we compare the variance of the hazard increments in a non-parametric setting versus the Cox proportional hazards setting.
+To understand why the effective sample size $N_*$ can exceed the development sample size $N$, we compare the variance of the hazard increments in a non-parametric setting with the variance in the Cox proportional hazards setting.
 
-In the absence of covariates, the Nelson-Aalen estimator for the cumulative hazard is $\hat{H}(t) = \sum_{t_j \leq t} \frac{d_j}{n_j}$. The variance of a single hazard increment at event time $t_j$ is given by:
+In the absence of covariates, the Nelson-Aalen estimator for the cumulative hazard is $\hat{H}(t) = \sum_{t_j \leq t} \frac{d_j}{n_j}$. The variance of a single hazard increment at event time $t_j$ is:
+
 $$
 Var(\Delta \hat{H}_{NA}(t_j)) = \frac{d_j}{n_j^2}
 $$
+
 where $d_j$ is the number of events and $n_j$ is the number of individuals in the risk set $R_j$.
 
-In the Cox model, the predicted hazard increment for a new patient with covariate profile $x_{new}$ is $\Delta \hat{H}_{new}(t_j) = \Delta \hat{H}_0(t_j) e^{\hat{\beta}^\top x_{new}}$. Considering only the variance component stemming from the baseline hazard (treating $\beta$ as fixed), the variance is:
+In the Cox model, the predicted hazard increment for a new patient with covariate profile $\mathbf{x}_{new}$ is $\Delta \hat{H}_{new}(t_j) = \Delta \hat{H}_0(t_j) e^{\hat{\beta}^\top \mathbf{x}_{new}}$. When we only consider the variance component from the baseline hazard (treating $\beta$ as fixed), the variance is:
+
 $$
-Var(\Delta \hat{H}_0(t_j) e^{\beta^\top x_{new}} \mid \beta) = (e^{\beta^\top x_{new}})^2 \frac{d_j}{(\sum_{i \in R_j} e^{\beta^\top x_i})^2}
+Var(\Delta \hat{H}_0(t_j) e^{\beta^\top \mathbf{x}_{new}} \mid \beta) = (e^{\beta^\top \mathbf{x}_{new}})^2 \frac{d_j}{(\sum_{i \in R_j} e^{\beta^\top \mathbf{x}_i})^2}
 $$
 
 The Cox model provides a more precise estimate (lower variance) than the Nelson-Aalen estimator at time $t_j$ when:
+
 $$
-(e^{\beta^\top x_{new}})^2 \frac{d_j}{(\sum_{i \in R_j} e^{\beta^\top x_i})^2} < \frac{d_j}{n_j^2}
+(e^{\beta^\top \mathbf{x}_{new}})^2 \frac{d_j}{(\sum_{i \in R_j} e^{\beta^\top \mathbf{x}_i})^2} < \frac{d_j}{n_j^2}
 $$
+
 Taking the square root and rearranging, this simplifies to:
-$$
-e^{\beta^\top x_{new}} < \frac{\sum_{i \in R_j} e^{\beta^\top x_i}}{n_j}
-$$
-This inequality demonstrates that the Cox model yields a lower prediction variance whenever the new patient’s risk score $e^{\beta^\top x_{new}}$ is lower than the arithmetic mean of the risk scores currently in the risk set $R_j$.
 
-The informational efficiency of the Cox model stems from the proportional hazards assumption, which allows the model to utilize the entire longitudinal history of the cohort to estimate $\beta$. While the Nelson-Aalen estimator treats all individuals at risk as identical units, the Cox model utilizes their prognostic heterogeneity. For patients with a risk profile below the cohort average, this structural weighting reduces the stochastic noise of the baseline hazard estimation, leading to a variance lower than that of a standard binomial experiment and, consequently, an $N_* > N$.
+$$
+e^{\beta^\top \mathbf{x}_{new}} < \frac{\sum_{i \in R_j} e^{\beta^\top \mathbf{x}_i}}{n_j}
+$$
 
-# Supplement 4: Distribution of predictors
-The first predictor was the `adhere` variable, a dichotomous indicator for adherence of the tumor to nearby organs (positive in 135 of 929 patients). The second predictor was `rx`, a three-level categorical variable of the three treatment arms from the randomized clinical trial. The third predictor was `age` as a continuous variable. The mean age was 60 years with a standard deviation of 12 years. The age distribution was left-skewed. Finally, the fourth predictor, `nodes`, was a heavily right-skewed variable (median 4 nodes, range of 0 to 33).
+This inequality shows that the Cox model yields a lower prediction variance whenever the risk score of the new patient, $e^{\beta^\top \mathbf{x}_{new}}$, is lower than the arithmetic mean of the risk scores in the risk set $R_j$.
+
+The efficiency of the Cox model relates to the proportional hazards assumption, which allows the model to use the entire follow-up of the cohort to estimate $\beta$. While the Nelson-Aalen estimator treats all individuals at risk as identical units, the Breslow estimator of the cumulative hazard uses their prognostic heterogeneity. For patients with a risk score below the average of the risk set, this weighting reduces the noise in the baseline hazard estimate. The variance is then lower than that of a binomial experiment, which results in $N_* > N$.
+
+{{< pagebreak >}}
+
+# Supplement 4: Distribution of predictors in case study
 
 ```{r}
-#| label: supplement-4
-#| fig-cap: "Distribution of 4 prognostic factors in the colon dataset."
-#| message: false
-#| warning: false
-#| output: true
-#| dev: png
-#| dpi: 300
+#| label: s4-numbers
+n_pat <- nrow(colon_df)
+n_adh <- sum(colon_df$adhere == 1, na.rm = TRUE)
+n_miss <- sum(is.na(colon_df$nodes))
+```
 
+In the colon data, the first predictor was the `adhere` variable, a dichotomous indicator for adherence of the tumor to nearby organs (positive in `r n_adh` of `r n_pat` patients). The second predictor was `rx`, a three-level categorical variable of the three treatment arms of the randomized clinical trial. The third predictor was `age`, a continuous variable. The mean age was `r round(mean(colon_df$age))` years with a standard deviation of `r round(sd(colon_df$age))` years, and the age distribution was left-skewed. Finally, the fourth predictor, `nodes`, was a heavily right-skewed variable (median `r median(colon_df$nodes, na.rm = TRUE)` nodes, range `r min(colon_df$nodes, na.rm = TRUE)` to `r max(colon_df$nodes, na.rm = TRUE)`) with `r n_miss` missing values, which were imputed once for the models with the number of nodes.
 
-# Calculate the maximum frequency for bar plots
+```{r}
+#| label: s4-fig
+#| fig-cap: "Figure S4.1. Distribution of the four prognostic factors in the colon data."
+#| fig-width: 7
+#| fig-height: 5
+
+# Maximum frequency for the bar plots and histograms, so that the y-axes are comparable
 max_bar_freq <- max(table(colon_df$adhere), table(colon_df$rx))
-
-# Calculate the maximum frequency for histograms
 max_hist_freq <- max(table(cut(colon_df$age, breaks = seq(min(colon_df$age), max(colon_df$age) + 5, by = 5))),
                      table(colon_df$nodes))
 
-# 1. Bar plot of frequency of adhere
 plot1 <- ggplot(colon_df, aes(x = factor(adhere, levels = c(0, 1), labels = c("No", "Yes")))) +
   geom_bar(fill = col["b"], col = 'black') +
   labs(x = "Adherence", y = "Frequency") +
   theme_minimal() +
   ylim(0, max_bar_freq)
 
-# 2. Bar plot of frequency of rx
-plot2 <- ggplot(colon_df, aes(x = factor(rx, levels = c("Obs", "Lev", "Lev+5FU"), labels = c("Obs", "Lev", "Lev+5FU")))) +
+plot2 <- ggplot(colon_df, aes(x = factor(rx, levels = c("Obs", "Lev", "Lev+5FU")))) +
   geom_bar(fill = col["lp"], col = 'black') +
   labs(x = "Treatment", y = "Frequency") +
   theme_minimal() +
   ylim(0, max_bar_freq)
 
-# 3. Histogram of age
 plot3 <- ggplot(colon_df, aes(x = age)) +
   geom_histogram(binwidth = 5, fill = col["r"], color = "black") +
   labs(x = "Age", y = "Frequency") +
   theme_minimal() +
   ylim(0, max_hist_freq)
 
-# 4. Histogram of nodes
 plot4 <- ggplot(colon_df, aes(x = nodes)) +
   geom_histogram(binwidth = 1, fill = col["y"], color = "black") +
   labs(x = "Nodes", y = "Frequency") +
   theme_minimal() +
   ylim(0, max_hist_freq)
 
-library(patchwork)
-combined_plot <- (plot1 | plot2) / (plot3 | plot4)
-print(combined_plot)
+(plot1 | plot2) / (plot3 | plot4)
 ```
 
+{{< pagebreak >}}
 
-# Supplement 5: Cox model has narrower 95% CI than Kaplan-Meier
-The effective sample size of a prediction from a univariate Cox model based only on treatment is higher than that of a Kaplan-Meier curve for the same treatment group, especially early on in follow-up. This suggests that the Cox model prediction is more certain about the prediction and this should reflect in a smaller 95% confidence interval. Indeed, when comparing the Cox model prediction for a patient receiving 'Lev+5FU' treatment from univariate Cox model based only on treatment to the Kaplan-Meier curve for this treatment group in @fig-supplement-5, we see that the 95% confidence interval of the Cox model prediction is narrower than that of the Kaplan-Meier curve, especially early on in follow-up. This is consistent with the higher effective sample size of the Cox model prediction compared to the Kaplan-Meier curve for this patient and treatment group.
+# Supplement 5: The Cox model has a narrower 95% confidence interval than Kaplan-Meier
+
+The effective sample size of a prediction from a univariable Cox model based on treatment is higher than that of the Kaplan-Meier curve for the same treatment group, especially early in follow-up. This suggests that the Cox model prediction is more certain, which should show in a narrower 95% confidence interval. Indeed, when we compared the prediction of a patient receiving 'Lev+5FU' from the Cox model based on treatment to the Kaplan-Meier curve of this treatment group (Figure S5.1), the 95% confidence interval of the Cox model prediction was narrower than that of the Kaplan-Meier curve, especially early in follow-up. This was consistent with the higher effective sample size of the Cox model prediction.
 
 ```{r}
-#| label: fig-supplement-5
-#| fig-cap: "95% Confidence Interval comparison."
-#| output: true
-#| echo: FALSE
+#| label: s5-fig
+#| fig-cap: "Figure S5.1. Survival prediction and 95% confidence interval of a patient treated with Lev+5FU, from a Cox model based on treatment (purple) and from the Kaplan-Meier estimate of the Lev+5FU group (red). The arrows show the width of the confidence interval at 1.6 years (Cox) and 1.5 years (Kaplan-Meier)."
+#| fig-width: 7
+#| fig-height: 4.5
 
-source("code/compile.R")
+d5 <- colon_df
+d5$time <- d5$time / 365.241
 
-colon_df$time <- colon_df$time/365.241
+cox_rx <- coxph(Surv(time, status) ~ rx, data = d5)
+km_rx_2 <- survfit_n(survfit(Surv(time, status) ~ 1, data = d5[d5$rx == "Lev+5FU", ]))
+cox_rx_2 <- survfit_n(survfit(cox_rx, newdata = data.frame(rx = "Lev+5FU")), cox = cox_rx)
 
-# Fit all the models
-cox_adhere <- coxph( Surv(time, status) ~ adhere, data = colon_df)
-cox_rx <- coxph( Surv(time, status) ~ rx, data = colon_df)
-
-# Predict the effective sample size
-km_adhere_0 <- survfit_n( survfit(Surv(time, status) ~ 1, data = colon_df[colon_df$adhere == 0,]) )
-km_adhere_1 <- survfit_n( survfit(Surv(time, status) ~ 1, data = colon_df[colon_df$adhere == 1,]) )
-km_rx_0 <- survfit_n( survfit(Surv(time, status) ~ 1, data = colon_df[colon_df$rx == "Obs",]) )
-km_rx_1 <- survfit_n( survfit(Surv(time, status) ~ 1, data = colon_df[colon_df$rx == "Lev",]) )
-km_rx_2 <- survfit_n( survfit(Surv(time, status) ~ 1, data = colon_df[colon_df$rx == "Lev+5FU",]) )
-cox_adhere_0 <- survfit_n( survfit(cox_adhere, newdata=data.frame(adhere=0)), cox=cox_adhere)
-cox_adhere_1 <- survfit_n( survfit(cox_adhere, newdata=data.frame(adhere=1)), cox=cox_adhere)
-cox_rx_0 <- survfit_n( survfit(cox_rx, newdata=data.frame(rx="Obs")), cox=cox_rx)
-cox_rx_1 <- survfit_n( survfit(cox_rx, newdata=data.frame(rx="Lev")), cox=cox_rx)
-cox_rx_2 <- survfit_n( survfit(cox_rx, newdata=data.frame(rx="Lev+5FU")), cox=cox_rx)
-
-
-color_values <- c("Obs"= "#2E7691", "Kaplan-Meier" = "#C2666B", "Cox"= "#37293F", "Lev+5FU" = "#c6aa2c", "Adhesion" = "#9f84af")
+color_values <- c("Kaplan-Meier" = "#C2666B", "Cox" = "#37293F")
 linetype_values <- c("Prediction" = "solid", "95% CI" = "dashed")
-plot_ci <- ggplot() +
-  # Cox curves
-  geom_line(aes(x = cox_rx_2$time, y = cox_rx_2$surv, color = "Cox", linetype = "Prediction"),
-            lwd = 1.3, alpha = 0.5) +
-  geom_line(aes(x = cox_rx_2$time, y = cox_rx_2$upper, color = "Cox", linetype = "95% CI"),
-            lwd = 1.3, alpha = 0.5) +
-  geom_line(aes(x = cox_rx_2$time, y = cox_rx_2$lower, color = "Cox", linetype = "95% CI"),
-            lwd = 1.3, alpha = 0.5) +
-  
-  # Kaplan–Meier curves
-  geom_line(aes(x = km_rx_2$time, y = km_rx_2$surv, color = "Kaplan-Meier", linetype = "Prediction"),
-            lwd = 1.3, alpha = 0.5) +
-  geom_line(aes(x = km_rx_2$time, y = km_rx_2$upper, color = "Kaplan-Meier", linetype = "95% CI"),
-            lwd = 1.3, alpha = 0.5) +
-  geom_line(aes(x = km_rx_2$time, y = km_rx_2$lower, color = "Kaplan-Meier", linetype = "95% CI"),
-            lwd = 1.3, alpha = 0.5) +
-  
-  # Double arrow for Kaplan–Meier at t = 1.5
-  geom_segment(
-    {
-      i <- which.max(ifelse(km_rx_2$time < 1.5, km_rx_2$time, -Inf))
-      aes(x = km_rx_2$time[i], xend = km_rx_2$time[i],
-          y = km_rx_2$lower[i], yend = km_rx_2$upper[i])
-    },
-    color = color_values["Kaplan-Meier"],
-    linewidth = 1.2,
-    arrow = arrow(length = unit(0.15, "cm"), ends = "both", type = "closed")
-  ) +
-  
-  # Double arrow for Cox at t = 1.6
-  geom_segment(
-    {
-      j <- which.max(ifelse(cox_rx_2$time < 1.6, cox_rx_2$time, -Inf))
-      aes(x = cox_rx_2$time[j], xend = cox_rx_2$time[j],
-          y = cox_rx_2$lower[j], yend = cox_rx_2$upper[j])
-    },
-    color = color_values["Cox"],
-    linewidth = 1.2,
-    arrow = arrow(length = unit(0.15, "cm"), ends = "both", type = "closed")
-  ) +
-  
-  scale_color_manual(values = color_values) +
-  scale_linetype_manual(values = linetype_values) +
-  theme_minimal() + 
+
+# Width of the confidence interval just before t = 1.5 (Kaplan-Meier) and t = 1.6 (Cox)
+i <- which.max(ifelse(km_rx_2$time < 1.5, km_rx_2$time, -Inf))
+j <- which.max(ifelse(cox_rx_2$time < 1.6, cox_rx_2$time, -Inf))
+arrows <- data.frame(model = c("Kaplan-Meier", "Cox"),
+                     x = c(km_rx_2$time[i], cox_rx_2$time[j]),
+                     lower = c(km_rx_2$lower[i], cox_rx_2$lower[j]),
+                     upper = c(km_rx_2$upper[i], cox_rx_2$upper[j]))
+
+ci_line <- function( d, y, model, type ) geom_line(data = data.frame(time = d$time, y = d[[y]]),
+                                                    aes(x = time, y = y, color = model, linetype = type),
+                                                    lwd = 1.3, alpha = 0.5)
+ggplot() +
+  ci_line(cox_rx_2, "surv", "Cox", "Prediction") + ci_line(cox_rx_2, "upper", "Cox", "95% CI") +
+  ci_line(cox_rx_2, "lower", "Cox", "95% CI") +
+  ci_line(km_rx_2, "surv", "Kaplan-Meier", "Prediction") + ci_line(km_rx_2, "upper", "Kaplan-Meier", "95% CI") +
+  ci_line(km_rx_2, "lower", "Kaplan-Meier", "95% CI") +
+  geom_segment(data = arrows, aes(x = x, xend = x, y = lower, yend = upper, color = model),
+               linewidth = 1.2, arrow = arrow(length = unit(0.15, "cm"), ends = "both", type = "closed"),
+               show.legend = FALSE) +
+  scale_color_manual(values = color_values, name = NULL) +
+  scale_linetype_manual(values = linetype_values, name = NULL) +
   scale_y_continuous(name = "Survival probability") +
-  scale_x_continuous(name = "Time (years)",
-                     breaks = seq(0, max(colon_df$time), by = 2)) +
-  labs(title = "Survival curve of a patient with Lev+5FU-treatment from Cox and Kaplan-Meier")
-print(plot_ci)
+  scale_x_continuous(name = "Time (years)", breaks = seq(0, max(d5$time), by = 2)) +
+  theme_minimal()
 ```
 
+{{< pagebreak >}}
 
-# Supplement 6: Effective sample size of mean patient is $N$ in linear regression
-To support a claim made in the article, we quickly show in an example with the GUSTO data that a patient with the mean value of all predictors in the model has an effective sample size equal to the development sample size in a linear regression model. We fit a linear regression model for the `day30` outcome based on age and height, two continuous predictors. We find that the effective sample size for a patient with mean age and mean height is 1214, equal to the development sample size of 1214 patients in this subset of the GUSTO data. We follow code from Thomassen 2024:
+# Supplement 6: Effective sample size in real-world datasets
 
 ```{r}
-#| echo: false
-#| label: supplement-6
-#| output: true
+#| label: s6-prep
 
-library(Hmisc)
-getHdata(gusto)
-gusto.dat <- gusto[which(gusto$grpl %in% c(1,2,4) & gusto$grps %in% c(5,9,10,11)),]
+# ess_realworld.R redefines some objects of compile.R (for example FRACS), so it is sourced here and
+# sim_guardrails.R again in Supplement 7
+source(here::here("code", "ess_realworld.R"))
+res_rw <- load_res("ess_realworld.rds")
+rw <- prep_plot_data(res_rw)
+rw$dataset_lab <- unname(DS_LABELS[rw$dataset])
 
-gusto.dat$age <- gusto.dat$age - mean(gusto.dat$age)
-gusto.dat$hei <- gusto.dat$hei - mean(gusto.dat$hei)
+tab_ds <- unique(res_rw[res_rw$spec == MAIN_SPEC, c("dataset", "n_raw", "n_total", "d_total", "n_par", "cstat", "sd_lp")])
+tab_ds$epv <- tab_ds$d_total / tab_ds$n_par
+tab_ds <- tab_ds[order(tab_ds$cstat), ]
+tab_ds$dataset <- unname(DS_LABELS[tab_ds$dataset])
 
-X_ols <- model.matrix(~age+hei, data=gusto.dat)
-XTX <- t(X_ols)%*%X_ols
-
-model <- lm(day30~age+hei, data=gusto.dat)
-new <- matrix(c(1, 0, 0), nrow = 1, ncol=3)
-A <- solve(XTX)%*%t(new)
-n_eff <- 1/(new%*%A)
+# Percentage of predictions with N* > N per dataset and fraction of events observed
+pct <- aggregate(above_N ~ dataset_lab + f_target, data = rw, FUN = function( x ) 100 * mean(x))
+pct_wide <- reshape(pct, idvar = "dataset_lab", timevar = "f_target", direction = "wide")
+pct_wide <- pct_wide[match(tab_ds$dataset, pct_wide$dataset_lab), ]
+f_cols <- paste0("above_N.", FRACS)
 ```
 
-```{r, echo = FALSE}
-print(paste0("Development sample size: ", nrow(gusto.dat)))
-print(paste0("Effective sample size of a patient with mean height and age: ", n_eff))
-```
-
-# Supplement 7: Effective sample size for linear regression is bounded by number of patients in same category, but not for logistic regression
-
-Effective sample size in linear regression models based on one continuous and one categorical variable are bounded by the number of patients in the same category. Below is an example in the GUSTO data for a linear regression model for height based on age and sex. There are 317 women in this subset of the data. First, we find that for a female patient with the population mean age, her effective sample size is 300, lower than the number of women in the data. However, if we calculate the effective sample size for a woman with the mean age of women, then the effective sample size is 317, equal to the total number of women in the data. 
+We aimed to assess how common the behavior ($N_* > N$) as observed in the colon cancer data occurs. We hereto computed effective sample sizes for Cox models in eight open datasets of the survival package: colon, pbc, veteran, lung, rotterdam, gbsg, flchain and mgus2. For each dataset we pre-specified a set of candidate predictors and fitted a Cox model. Skewed positive biomarkers were log-transformed. The final model was obtained by backward elimination based on the AIC. The model-based variance estimate ignored the selection step, so $N_*$ was conditional on the selected model. For every patient in the development data, we calculated $N_*$ at the times at which 1%, 10%, 25%, 40%, 60%, 75% and 90% of all events had occurred. Because $N_*$ depended on the absolute development sample size, we reported $N_*/N$. Table S6.1 shows descriptives of the datasets. The number of complete cases ranged from `r min(tab_ds$n_total)` for the `r tab_ds$dataset[which.min(tab_ds$n_total)]` data set to `r format(max(tab_ds$n_total), big.mark = ",")` for the `r tab_ds$dataset[which.max(tab_ds$n_total)]` data set. The number of events exceeded 100 for all data sets, fulfilling a minimum requirement for model development [@steyerberg2026]. The final models had between `r min(tab_ds$n_par)` and `r max(tab_ds$n_par)` predictors and an apparent c statistic between `r f2(min(tab_ds$cstat), 2)` and `r f2(max(tab_ds$cstat), 2)`.
 
 ```{r}
-#| label: supplement-7
-#| echo: FALSE
-#| output: TRUE
-
-model <- lm(height ~ age + sex, data = gusto.dat)
-X_ols <- model.matrix(~age+sex, data=gusto.dat)
-XTX <- t(X_ols)%*%X_ols
-m_age <- mean(gusto.dat$age)
-new <- matrix(c(1, m_age, 1), nrow = 1, ncol=3)
-A <- solve(XTX)%*%t(new)
-n_eff_1 <- 1/(new%*%A)
-
-m_age_sex <- mean(gusto.dat[gusto.dat$sex == "female", "age"])
-new <- matrix(c(1, m_age_sex, 1), nrow = 1, ncol=3)
-A <- solve(XTX)%*%t(new)
-n_eff_2 <- 1/(new%*%A)
-
-print(paste0("Number of female patients: ", sum(gusto.dat$sex == "female")))
-print(paste0("Effective sample size of a woman with population mean age from linear regression: ", round(n_eff_1)))
-print(paste0("Effective sample size of a woman with female mean age from linear regression: ", round(n_eff_2)))
+#| label: s6-table-datasets
+knitr::kable(
+  tab_ds[, c("dataset", "n_raw", "n_total", "d_total", "n_par", "cstat")],
+  digits = c(0, 0, 0, 0, 0, 2), row.names = FALSE,
+  col.names = c("Dataset", "Patients in data", "Complete cases", "Events", "Predictors kept", "Harrell's C"),
+  caption = "Table S6.1. Datasets and backward-selected Cox models. Harrell's C is apparent (development data) and covers the full follow-up."
+)
 ```
 
-In logistic regression effective sample size can be higher then the total number of patients in your categorical subgroup, such as sex. To illustrate, we fit a logistic regression model for the `day30` outcome based on age and sex, again based on 1214 patients, 317 of which are women. Below is the same model based on age and gender, but now using a glm with logit link function. In a logistic regression model, the effective sample size can be higher than the amount of women in the data. The effective sample size for the prediction for a woman with the population mean age (406) is higher than that for a woman with the mean age among women (345). This contrasts with the linear regression model where effective sample size was the highest for the woman with the mean age among women. 
+Figure S6.1 shows $N_*/N$ against the predicted survival probability. Predictions with $N_* > N$ occurred early during follow-up where the predicted survival was close to 1. This was confirmed in a further simulation study (Supplement 7). Predictions with $N_* > N$ also occurred where the predicted survival was close to zero.
 
 ```{r}
-#| label: supplement-7-2
-#| echo: false
-#| output: true
-
-LR0.fit <- glm(formula = day30 ~ age + sex, data = gusto.dat, family = binomial(link = "logit"))
-neff_1 <- c()
-neff_2 <- c()
-
-cov.beta <- vcov(LR0.fit)
-X_LR0 <- model.matrix(LR0.fit)
-
-new <- data.frame(age=mean(gusto.dat$age), sex="female")
-pred <- predict(LR0.fit, newdata = new, type = "response", se.fit = TRUE)
-neff_1$pi.pred <- pred$fit
-neff_1$pi.se <- pred$se.fit
-neff_1$vary_xnew <- neff_1$pi.pred*(1-neff_1$pi.pred)
-mm <- matrix(c(1, mean(gusto.dat$age), 1), nrow = 1, ncol = ncol(X_LR0))
-neff_1$n_eff_LR <- 1/((mm %*% (cov.beta %*% t(mm)))*neff_1$vary_xnew)
-
-new <- data.frame(age=mean(gusto.dat[gusto.dat$sex == "female", "age"]), sex="female")
-pred <- predict(LR0.fit, newdata = new, type = "response", se.fit = TRUE)
-neff_2$pi.pred <- pred$fit
-neff_2$pi.se <- pred$se.fit
-neff_2$vary_xnew <- neff_2$pi.pred*(1-neff_2$pi.pred)
-mm <- matrix(c(1, mean(gusto.dat[gusto.dat$sex == "female", "age"]), 1), nrow = 1, ncol = ncol(X_LR0))
-neff_2$n_eff_LR <- 1/((mm %*% (cov.beta %*% t(mm)))*neff_2$vary_xnew)
-
-print(paste0("Number of women in data: ", sum(gusto.dat$sex == "female")))
-print(paste0("Effective sample size of a woman with population mean age from logistic regression without interaction: ", 
-             round(max(neff_1$n_eff_LR))))
-print(paste0("Effective sample size of a woman with female mean age from logistic regression without interaction: ", 
-             round(max(neff_2$n_eff_LR))))
+#| label: s6-fig-scatter
+#| fig-cap: "Figure S6.1. Effective sample size relative to the development sample size, $N_*/N$, against predicted survival for the backward-selected Cox model in each dataset. The y-axis runs from 0 to 2 in each panel. Colours indicate the fraction of events observed at the specific horizon. Dashed horizontal line: $N_* = N$; dashed vertical line: survival above which the median $N_*/N$ exceeds 1, marked with the predicted survival threshold by data set. The lowest threshold was found in the Veterans' lung cancer data set ($\\widehat{S}(t|\\mathbf{x})$ = 0.93)."
+#| fig-width: 9
+#| fig-height: 6
+plot_scatter(rw)
 ```
 
-
-Next we include an interaction term between age and sex to the logistic regression model. Effective sample size is much lower for both predictions, with the effective sample size for a women with the population mean age dropping from 406 to 194 and for a women with the female mean age dropping from 345 to 235. Note that the effective sample size for a woman with the mean age in her subgroup of women, is now higher than for a woman with the mean age in the overall development population.
+Table S6.2 shows the percentage of predictions with $N_* > N$ per dataset and fraction of events observed. At the first horizon (1% of the events), this percentage ranged from `r round(min(pct_wide[[f_cols[1]]]))`% to `r round(max(pct_wide[[f_cols[1]]]))`% over the datasets. At the last horizon (90% of the events) it ranged from `r round(min(pct_wide[[f_cols[length(f_cols)]]]))`% to `r round(max(pct_wide[[f_cols[length(f_cols)]]]))`% (`r pct_wide$dataset_lab[which.max(pct_wide[[f_cols[length(f_cols)]]])]` data set).
 
 ```{r}
-#| label: supplement-7-3
-#| echo: false
-#| output: true
-
-LR1.fit <- glm(formula = day30 ~ age + sex + age:sex, data = gusto.dat, family = binomial(link = "logit"))
-neff_1 <- c(); m_age <- mean(gusto.dat$age)
-neff_2 <- c(); m_age_women <- mean(gusto.dat[gusto.dat$sex == "female", "age"])
-
-cov.beta <- vcov(LR1.fit)
-X_LR1 <- model.matrix(LR1.fit)
-
-new <- data.frame(age=m_age, sex="female")
-pred <- predict(LR1.fit, newdata = new, type = "response", se.fit = TRUE)
-neff_1$pi.pred <- pred$fit
-neff_1$pi.se <- pred$se.fit
-neff_1$vary_xnew <- neff_1$pi.pred*(1-neff_1$pi.pred)
-mm <- matrix(c(1, m_age, 1, m_age), nrow = 1, ncol = ncol(X_LR1))
-neff_1$n_eff_LR <- 1/((mm %*% (cov.beta %*% t(mm)))*neff_1$vary_xnew)
-
-new <- data.frame(age=m_age_women, sex="female")
-pred <- predict(LR1.fit, newdata = new, type = "response", se.fit = TRUE)
-neff_2$pi.pred <- pred$fit
-neff_2$pi.se <- pred$se.fit
-neff_2$vary_xnew <- neff_2$pi.pred*(1-neff_2$pi.pred)
-mm <- matrix(c(1, m_age_women, 1, m_age_women), nrow = 1, ncol = ncol(X_LR1))
-neff_2$n_eff_LR <- 1/((mm %*% (cov.beta %*% t(mm)))*neff_2$vary_xnew)
-
-print(paste0("Number of patients with your gender: ", sum(gusto.dat$sex == "female")))
-print(paste0("Effective sample size of a woman with population mean age from logistic regression with interaction: ", 
-             round(neff_1$n_eff_LR)))
-print(paste0("Effective sample size of a woman with female mean age from logistic regression with interaction: ", 
-             round(neff_2$n_eff_LR)))
+#| label: s6-table-pct
+tb <- pct_wide[, c("dataset_lab", f_cols)]
+knitr::kable(
+  tb, digits = 0, row.names = FALSE,
+  col.names = c("Dataset", paste0(100 * FRACS, "%")),
+  caption = "Table S6.2. Percentage of predictions with $N_* > N$ per dataset (ordered by Harrell's C) and fraction of events observed at the horizon (column headings)."
+)
 ```
 
+{{< pagebreak >}}
 
+# Supplement 7: Simulation to understand the behavior of $N_*$
 
-
-# Supplement 8: Multivariable Cox effective sample size at 5 years with separate baseline hazards for treatment
-Similar to figure 3 in the main text, but now with the model stratified by treatment instead of estimating a hazard ratio for treatment effect. At this 5-year survival prediction there is very little difference between the stratified and the non-stratified model, with the stratified model having slightly lower effective sample sizes, but not by much.
 ```{r}
-#| echo: FALSE
-#| output: TRUE
-#| eval: FALSE
-#| message: FALSE
-#| warning: FALSE
+#| label: s7-prep
+
+source(here::here("code", "sim_guardrails.R"))
+source(here::here("code", "sim_sensitivity_plots.R"))     # threshold_limits(), plot_C_sens(), plot_shape_main()
+resM <- load_res("sim_main.rds")
+resCs <- load_res("sim_csens.rds")
+res16 <- load_res("sim_guardrails.rds")
+res16c <- load_res("sim_guardrails_shape.rds")
+resC <- load_res("sim_guardrails_cens.rds")
+design <- load_res("sim_main_design.rds")
+
+# Lower and upper limits of the survival at which more than 5% of the predictions have N* > N, per scenario
+# (same binning as Figure 6 of the article)
+cr <- threshold_limits(resM)
+pick <- function( col, e, adm ){
+  x <- cr[[col]][cr$e == e & cr$admin == adm]
+  if( length(x) == 1 ) x else NA_real_
+}
+es <- sort(unique(resM$e))
+lo0 <- sapply(es, function( e ) pick("S_low", e, FALSE))
+low_sentence <- if( !any(is.finite(lo0)) ) " At low survival, the percentage did not exceed 5% for any event rate." else {
+  ok <- is.finite(lo0); v <- f2(lo0[ok], 3); er <- paste0(100 * es[ok], "%")
+  paste0(" With no censoring, the percentage also exceeded 5% at low survival: below $S(t|\\mathbf{x})$ = ",
+         if( length(unique(v)) == 1 ) paste0(v[1], " for event rates of ", paste(er, collapse = " and "))
+         else paste0(v, " for an event rate of ", er, collapse = ", "), " (Table S7.2).")
+}
+rM <- main_data(resM)
+rM <- rM[rM$S_true > 1e-6, ]
+R_rep <- unique(resM$R)
+# Coverage of the 95% log(-log) CI per event rate (mean over covariate profiles, time points and censoring settings), with a
+# Wilson 95% interval for a proportion based on the R replications. The interval reflects Monte Carlo error only and is
+# conservative, because the combinations share the same replications.
+cov_tab <- do.call(rbind, lapply(split(rM, rM$el), function( g ) {
+  p <- mean(g$coverage, na.rm = TRUE); n <- R_rep[1]; z <- qnorm(0.975)
+  ci <- (p + z^2 / (2 * n) + c(-1, 1) * z * sqrt(p * (1 - p) / n + z^2 / (4 * n^2))) / (1 + z^2 / n)
+  data.frame(e = 100 * g$e[1], p = p, lo = ci[1], hi = ci[2], row.names = NULL) }))
+cov_tab$cov <- paste0("**", f2(cov_tab$p, 3), "**")          # coverage is the main result: bold
+cov_tab$ci <- paste0(f2(cov_tab$lo, 3), " to ", f2(cov_tab$hi, 3))
+cov_all95 <- all(cov_tab$lo <= 0.95 & cov_tab$hi >= 0.95)
+```
+
+We did two simulation studies. The first investigated $N_*$ early in follow-up in a large dataset without censoring. The second investigated for which survival probabilities $N_*$ exceeded the development sample size $N$, and whether the variance on which $N_*$ is based is valid. Both are reported according to the ADEMP framework (aims, data-generating mechanisms, estimands, methods and performance measures).[@morris2019]
+
+## Simulation 1: early in follow-up
+
+**Aims.** We wanted
+
+1. to verify that $N_* > N$ occurs early in follow-up for patients with a lower hazard than the average patient;
+2. to assess how the variance of the survival estimate is divided into a part from the baseline hazard and a part from the coefficient and how this division changes over time.
+
+Based on the results, we might find a heuristic calculation for $N_*$ early on in follow-up.
+
+**Data-generating mechanisms.** We simulated $N = 10,000$ patients without censoring, with a constant baseline hazard $h_0(t) = 1$ and one predictor with a hazard ratio of 2. The predictor was either binary ($X_1$, exactly half of the patients with $X_1 = 1$) or continuous ($X_2 \sim N(0,1)$).
+
+**Estimands.** The survival probability and its effective sample size over time for patients with $X_1 = 0$ and $X_1 = 1$, and for patients with $X_2 = -1$, $0$ and $1$.
+
+**Methods.** We fitted a Cox model with the predictor and calculated $N_*$ with Equations (2) and (3) in the main text. We divided the variance into the variance from the baseline hazard (first term of Equation (3)) and the variance from the coefficient (second term). For the binary predictor, we used the Kaplan-Meier estimates in the two groups as reference.
+
+**Performance measures.** $N_*$ over time and the proportion of the variance that originates from the baseline hazard (Figure 5 of the article). Supplement 8 focuses on the values at the first event.
+
+## Simulation 2: when does $N_*$ exceed $N$, and is $N_*$ valid?
+
+**Aims.**
+
+1. We wanted to determine for which true survival probabilities the estimated effective sample size exceeds the development sample size ($\widehat{N}_* > N$), and how this depends on the event rate, the strength of the model (Harrell's C of the true linear predictor) and censoring. The event rate is the true marginal probability of an event by time $\tau$, $e = 1 - S(\tau)$ (hereafter "event rate"), where $\tau$ is the end of follow-up and $S(\tau)$ is the survival probability at $\tau$ averaged over the covariate distribution of the population.
+2. We wanted to determine whether the variance estimate underlying $\widehat{N}_*$ is valid, which we assessed with the coverage of the 95% confidence interval. $N_*$ is the prediction variance re-expressed with the binomial variance, so $N_*$ is only meaningful if the variance is accurate.
+
+**Data-generating mechanisms.** Event times followed a Weibull proportional hazards model with $H_0(t) = \lambda t^{\gamma}$ and shape $\gamma = 1$. Follow-up ended at $\tau = 1$ in all scenarios. We chose $\lambda$ such that the event rate $e = 1 - S(\tau)$, with $S(t)$ the marginal survival function in the population (averaged over the covariate distribution), took the desired value. The event rate was therefore a property of the hazard and was the same with and without censoring. The model contained three standard normal and three binary (prevalence 0.5) predictors with equal contributions to the linear predictor (in practice this meant coefficients for the binary predictors were twice as high as those of continuous predictors, as the standard deviation of a binary variable with prevalence 0.5 is 0.5). We multiplied all coefficients by a constant such that Harrell's C of the true linear predictor, estimated in a large sample censored at $\tau$, equalled a target value (0.8).
+
+The main simulation was a full factorial design with seven event rates, $e$ = 1%, 5%, 10%, 30%, 60%, 90% and 99%, and two censoring settings, with Harrell's C fixed at 0.8 (14 scenarios, Table S7.1). The sample size was $N = 500/e$, so that every scenario contained about 500 events without censoring ($N = 50,000$ for $e = 1\%$ and $N = 556$ for $e = 90\%$ and $N = 505$ for $e = 99\%$). In the first setting, no censoring implied that all patients were followed up to $\tau$. In the second setting, uniform censoring, the potential follow-up of each patient was uniformly distributed between $0.2\tau$ and $\tau$ (for example between 1 and 5 years), to mimic a registry with staggered inclusion where nobody is lost to follow-up early. The hazard and $N$ were the same as without censoring, so with uniform censoring fewer than $e$ of the patients had an observed event.
+
+We used a Harrell's C of 0.8 in the main simulation because C did not change the survival at which $\widehat{N}_* > N$ became frequent (see the sensitivity analyses below). In the sensitivity analyses we varied Harrell's C, the number of predictors, the addition of noise predictors, the Weibull shape and random censoring.
+
+```{r}
+#| label: s7-table-design
+d1 <- merge(design[!design$admin, c("e", "N", "events")], design[design$admin, c("e", "events")],
+            by = "e", suffixes = c("_none", "_unif"))
+knitr::kable(
+  data.frame(e = 100 * d1$e, N = d1$N, none = 100 * d1$events_none, unif = 100 * d1$events_unif),
+  digits = c(0, 0, 1, 1), row.names = FALSE, format.args = list(big.mark = ","),
+  col.names = c("Event rate, $1 - S(\\tau)$ (%)", "Sample size $N$", "Patients with an observed event, no censoring (%)",
+                "Patients with an observed event, uniform censoring (%)"),
+  caption = "Table S7.1. Scenarios of the main simulation (Harrell's C = 0.8). The percentage of patients with an observed event is the population value."
+)
+```
+
+**Estimands.** The estimand was the effective sample size $N_*(t \mid \mathbf{x})$ of the Cox model survival prediction, for 200 fixed covariate profiles $\mathbf{x}$, taken from a simulated population of 100,000 patients as the patients at 200 equally spaced quantiles, $(i - 0.5)/200$, of the true linear predictor, at seven time points $t$. These were the times at which 5%, 10%, 25%, 40%, 60%, 75% and 90% of all observed events in the population had occurred. The true value of this estimand was
+$$N_*^{\text{true}}(t \mid \mathbf{x}) = \frac{S(t \mid \mathbf{x})\,(1-S(t \mid \mathbf{x}))}{\operatorname{Var}_{\text{emp}}(\widehat{S}(t \mid \mathbf{x}))},$$
+with $S(t \mid \mathbf{x})$ the true survival probability, known from the data-generating mechanism, and $\operatorname{Var}_{\text{emp}}$ the variance of $\widehat{S}(t \mid \mathbf{x})$ over the replications. In addition, in each replication we estimated the 95% confidence interval of $\widehat{S}(t \mid \mathbf{x})$ and checked whether it contained the true survival probability $S(t \mid \mathbf{x})$.
+
+**Methods.** In each replication we fitted a Cox model with all predictors (the true predictors and, in the sensitivity analysis, the noise predictors). We obtained $\widehat{S}(t \mid \mathbf{x})$ and its model-based standard error with `survfit`, and calculated $\widehat{N}_* = \widehat{S}(t \mid \mathbf{x})(1-\widehat{S}(t \mid \mathbf{x}))/\widehat{\operatorname{SE}}(\widehat{S}(t \mid \mathbf{x}))^2$. Confidence intervals were calculated on the log(-log) scale. We ran `r unique(resM$R)` replications per scenario. This number was determined in a pilot with 300 replications in selected scenarios, including the most demanding ones: we estimated the Monte Carlo standard error of each performance measure per cell (time point by band of true survival) and chose the number of replications such that the 90th percentile of the required numbers met a Monte Carlo standard error of 1 percentage point for the percentage of predictions with $\widehat{N}_* > N$ and 0.5 percentage points for the coverage.
+
+**Performance measures.** For each prediction (covariate profile, time point and simulated dataset) the true survival probability $S(t \mid \mathbf{x})$ was known from the data-generating model. Our primary performance measure was the percentage of predictions with $\widehat{N}_* > N$ among all predictions with the same true $S(t \mid \mathbf{x})$, which was the probability that a prediction for a patient with true survival $S(t \mid \mathbf{x})$ had $\widehat{N}_* > N$. We grouped the predictions by $S(t \mid \mathbf{x})$ on the logit scale (bins of width 0.2 to 0.4), pooled over the time points, and gave every prediction the same weight. The profiles were equally spaced quantiles of the linear predictor, so each profile represented the same share of the population. We kept all 200 profiles, including the most extreme ones (the 0.25% and 99.75% quantiles of the linear predictor). These profiles were extrapolations in a sample of this size, and their true survival probabilities were far outside the range in which the model would normally be used, so results for them should be interpreted with caution. For the coverage (Table S7.3), predictions with a true survival below $10^{-6}$ were left out, as the variance was zero in floating point at that level. The true survival $S^*$ above which more than 5% of the predictions had $\widehat{N}_* > N$ was determined by interpolation between bins, for each scenario separately. Second, we calculated the coverage of the 95% log(-log) confidence interval, which was the proportion of replications in which the interval contained the true $S(t \mid \mathbf{x})$.
+
+The fitted model was correctly specified, apart from the noise predictors in the sensitivity analysis, and we did not perform variable selection. The simulation therefore concentrated on the behavior of the variance estimator. Misspecification, variable selection and overoptimism were not investigated.
+
+### Results
+
+The percentage of predictions with $\widehat{N}_* > N$ against the true survival is shown in Figure 6 of the main article. Without censoring, more than 5% of the predictions had $\widehat{N}_* > N$ above $S(t \mid \mathbf{x})$ = `r f2(pick("S_up", 0.9, FALSE))` for an event rate of 90%, above `r f2(pick("S_up", 0.3, FALSE))` for 30% and above `r f2(pick("S_up", 0.1, FALSE))` for 10% (Table S7.2). With uniform censoring, these values were similar (`r f2(pick("S_up", 0.9, TRUE))`, `r f2(pick("S_up", 0.3, TRUE))` and `r f2(pick("S_up", 0.1, TRUE))`).`r low_sentence`
+
+```{r}
+#| label: s7-table-thr
+tb <- data.frame(
+  e = 100 * es,
+  lo0 = lo0, up0 = sapply(es, function( e ) pick("S_up", e, FALSE)),
+  lo1 = sapply(es, function( e ) pick("S_low", e, TRUE)),  up1 = sapply(es, function( e ) pick("S_up", e, TRUE)) )
+tb[-1] <- lapply(tb[-1], function( x ) ifelse(is.na(x), "NA", formatC(x, digits = 3, format = "f")))   # keep trailing zeros (0.010)
+knitr::kable(
+  tb, row.names = FALSE,
+  col.names = c("Event rate (%)", "Lower limit, no censoring", "Upper limit, no censoring",
+                "Lower limit, uniform censoring", "Upper limit, uniform censoring"),
+  caption = "Table S7.2. True survival $S(t|\\mathbf{x})$ below (lower limit) and above (upper limit) which more than 5% of the predictions had $\\widehat{N}_* > N$, by event rate, for no censoring (columns 2 and 3) and uniform censoring (columns 4 and 5). With fewer observed events, the threshold moved to slightly higher survival probabilities. NA: the percentage did not exceed 5% on that side in the range of survival probabilities that occurred."
+)
+```
+
+The coverage of the 95% log(-log) confidence interval was close to 95% for all event rates, also for predictions with a much larger $N_*$ than $N$ (Table S7.3 and Figure 7 of the main article). The 95% confidence intervals of the coverage, which reflect Monte Carlo error only, `r if (cov_all95) "all contained 0.95" else "did not all contain 0.95"` (Table S7.3).
+
+```{r}
+#| label: s7-table-cov
+knitr::kable(
+  cov_tab[, c("e", "cov", "ci")], row.names = FALSE, align = "r",
+  col.names = c("Event rate (%)", "Coverage", "95% confidence interval"),
+  caption = "Table S7.3. Coverage of the 95% log(-log) confidence interval (proportion of replications in which the interval contained the true $S(t|\\mathbf{x})$, averaged over all combinations of covariate profile, time point and censoring setting), by event rate. The 95% confidence interval of the coverage is a Wilson interval based on the 1000 replications and reflects Monte Carlo error only."
+)
+```
+
+### Sensitivity analyses
+
+```{r}
+#| label: s7-sens-prep
+
+common <- intersect(names(resM), names(resCs))
+resCall <- rbind(resM[!resM$admin & resM$e %in% c(0.05, 0.3, 0.9), common], resCs[, common])
+thrC <- threshold_limits(resCall)
+dC <- aggregate(S_up ~ e, data = thrC, FUN = function( x ) max(x) - min(x))
+fe_k <- factor_effect(res16, "k")
+fe_n <- factor_effect(res16, "noise")
+fe_s <- factor_effect(res16c, "shape")
+thrK <- threshold_k(res16)
+plC <- plot_cens(resC, tempdir(), scales = "logit")
+S_k <- function( k, noise ) thrK$S_up[thrK$k == k & thrK$noise == noise]
+shift_k <- function( k, noise ) {
+  d <- round(S_k(k, noise), 2) - round(S_k(3, 0), 2)   # difference of the rounded values shown, so that the text adds up
+  if( length(d) != 1 || is.na(d) ) return("could not be determined (the threshold was not reached)")
+  sprintf("%s by %s (from %s to %s)", ifelse(d > 0, "increased", "decreased"), f2(abs(d), 2), f2(S_k(3, 0), 2), f2(S_k(k, noise), 2))
+}
+ct <- cens_table(resC)
+```
+
+**Harrell's C.** We added scenarios with a Harrell's C of 0.6 and 0.9 at event rates of 5%, 30% and 90% (no censoring, $N = 500/e$) to the scenarios of the main simulation with $C = 0.8$. For each event rate, the survival $S^*$ above which more than 5% of the predictions had $\widehat{N}_* > N$ differed by at most `r f2(max(dC$S_up), 3)` between the three values of Harrell's C (Figure S7.1), which was small compared with the differences between event rates. Harrell's C determined how many patients had a survival probability in the range where $\widehat{N}_* > N$ occurred, because a higher C implied that the survival probabilities were spread over a wider range. Figure S7.2 confirms that the percentage of predictions with $\widehat{N}_* > N$ increased clearly with higher values of C.
+
+```{r}
+#| label: s7-fig-C
+#| fig-cap: "Figure S7.1. Percentage of predictions with $\\widehat{N}_* > N$ against the true survival $S(t|\\mathbf{x})$ (logit scale) for a Harrell's C of 0.6, 0.8 and 0.9, at event rates of 5%, 30% and 90% (no censoring). Dashed line: 5%."
 #| fig-width: 10
-#| label: supplement-8
-#| fig-cap: "Distribution of effective sample size for the 5-year survival prediction in the data as a function of the predicted 5-year survival probability. The first model includes only treatment. The second model adds adhesion, the third model adds nodes and the fourth model adds age It can be seen that the effective sample size does not decrease for all patients with increasing variables, but it does for patients with rare covariate values."
-
-#source("code/compile.R")
-
-year <- 5
-var1 <- "strata(rx)"; var2 <- "strata(rx) + adhere"; var3 <- "strata(rx) + adhere + nodes"; var4 <- "strata(rx) + adhere + nodes + age"
-leg1 <- "Strata(Tx)"; leg2 <- "Strata(Tx) + Adh"; leg3 <- "Strata(Tx) + Adh + Nodes"; leg4 <- "Strata(Tx) + Adh + Nodes + Age"
-
-
-# Single impute the nodes data
-colon_df$nodes <- mice::complete(mice::mice(colon_df, m = 1, print = FALSE))$nodes
-
-# Fit all cox models
-cox_model1 <- coxph(as.formula(paste0( "Surv( time, status) ~ ", var1)), data = colon_df)
-cox_model2 <- coxph(as.formula(paste0( "Surv( time, status) ~ ", var2)), data = colon_df)
-cox_model3 <- coxph(as.formula(paste0( "Surv( time, status) ~ ", var3)), data = colon_df)
-cox_model4 <- coxph(as.formula(paste0( "Surv( time, status) ~ ", var4)), data = colon_df)
-
-# Create prediction df
-out_df1 = out_df2 = out_df3 = out_df4 <- colon_df |>
-  select( rx, age, adhere, nodes )
-out_df1$model <- paste0( "(A) Surv( time, status) ~ ", var1)
-out_df2$model <- paste0( "(B) Surv( time, status) ~ ", var2)
-out_df3$model <- paste0( "(C) Surv( time, status) ~ ", var3)
-out_df4$model <- paste0( "(D) Surv( time, status) ~ ", var4)
-
-
-# Create SF object for correct time
-sf1 <- summary( survfit(Surv(time, status) ~ rx, data = colon_df), time = year*365.25 )
-sf1 <- data.frame(
-  rx = factor(sub("^rx=", "", sf1$strata)),
-  surv   = sf1$surv,
-  std.err = sf1$std.err
-) 
-sf2 <- summary( survfit(cox_model2, newdata = out_df2), time = year*365.25 )
-sf3 <- summary( survfit(cox_model3, newdata = out_df3), time = year*365.25 )
-sf4 <- summary( survfit(cox_model4, newdata = out_df4), time = year*365.25 )
-
-# Save survival probabilities
-out_df1 <- merge(out_df1, sf1, by = "rx", all.x = TRUE)
-out_df2$surv <- c(sf2$surv); out_df2$std.err <- c(sf2$std.err)
-out_df3$surv <- c(sf3$surv); out_df3$std.err <- c(sf3$std.err)
-out_df4$surv <- c(sf4$surv); out_df4$std.err <- c(sf4$std.err)
-
-# Calculate the effective sample size for the 5-year prediction
-out_df1$n.eff <- (1-out_df1$surv)*out_df1$surv/(c(out_df1$std.err)^2)
-out_df2$n.eff <- (1-out_df2$surv)*out_df2$surv/(c(out_df2$std.err)^2)
-out_df3$n.eff <- (1-out_df3$surv)*out_df3$surv/(c(out_df3$std.err)^2)
-out_df4$n.eff <- (1-out_df4$surv)*out_df4$surv/(c(out_df4$std.err)^2)
-
-out_df <- rbind(out_df1, out_df2, out_df3, out_df4)
-out_df$model <- factor(out_df$model, levels = c(paste0( "(A) Surv( time, status) ~ ", var1), 
-                                                paste0( "(B) Surv( time, status) ~ ", var2),  
-                                                paste0( "(C) Surv( time, status) ~ ", var3), 
-                                                paste0( "(D) Surv( time, status) ~ ", var4)))
-
-# Create a scatter plot
-colors <- c("#37293F", "#2E7691",  "#9f84af",  "#c6aa2c")
-names(colors) <- c(paste0( "(A) Surv( time, status) ~ ", var1), 
-                   paste0( "(B) Surv( time, status) ~ ", var2),  
-                   paste0( "(C) Surv( time, status) ~ ", var3), 
-                   paste0( "(D) Surv( time, status) ~ ", var4))
-
-plot <- ggplot(out_df) +
-  geom_point( aes(x = surv, y = n.eff, color = model), data = out_df, alpha = 0.2, size = 2) +
-  facet_wrap( ~model ) +
-  scale_x_continuous(name = "Predicted 5-Year Survival Probability", limits = c(0, 1)) +
-  scale_y_continuous(name = "Effective Sample Size", limits = c(0, 500)) +
-  #ggtitle("Changes distribution of Eff. N. between models") +
-  labs( color = "Legend") +
-  scale_color_manual(
-    values = colors
-  ) +
-  #theme_minimal() +
-  theme(legend.position = "none") + 
-  guides(colour = guide_legend(override.aes = list(alpha = 1)))
-
-# Print the plot
-plot
-save(plot, file = "images/fig-distribution.RData" )
-ggsave("4. Git Repository/images/distribution_strata.png", width = 13, height = 10, dpi = 300)
-rm( list = ls())
+#| fig-height: 3.5
+plot_C_sens(resCall, tempdir())
 ```
 
-
-# Supplement 9: Heuristic explanation of higher than total sample size
-The baseline hazard for the Cox model at time $t_i$ with $\delta_i$ events is estimated as $\frac{d_j}{\sum_{i \in R_j} \exp( \hat\beta^\top \mathbf{x}_i ) }$, where the denominator is the risk-weighted number at risk. This risk-weighted number at risk is the implicit sample size used for the baseline hazard estimation and based on $\beta$, which is estimated based on all events including those in the future.
-
-Near $t=0$ in Figure 4, a single death in 10,000 patients leads to a risk-weighted number at risk in the data of $5,000 \cdot 2 + 5,000 \cdot 1 = 15,000$. At such early follow-up time, the hazard of a patient is $\frac{\exp(\hat\beta^\top x_{\text{new}})}{\sum_{i \in R_j} \exp(\hat\beta^\top x_i)}$, the product of their hazard ratio and the baseline hazard. For a woman, the risk of being this first death is $1/15,000$, giving us an effective sample size of 15,000, exactly what was found in the simulation. For a man, the risk of being this first death is $2/15,000 = 1/7,500$, again matching the effective sample size of 7,500 in the simulation.
-
-We can investigate this heuristic explanation in the simulation example as well:
 ```{r}
-#| label: supplement-9
-#| output: false
-#| echo: false
+#| label: s7-fig-csens-share
+#| fig-cap: "Figure S7.2. Percentage of all predictions with $\\widehat{N}_* > N$ against the percentage of events observed, by Harrell's C and event rate (no censoring)."
+#| fig-width: 10
+#| fig-height: 3.5
+plot_share(resCall, tempdir())
+```
 
-require(surveillance)
+**Number of predictors and noise predictors.** We varied the number of true predictors ($k$ continuous and $k$ binary, with $k$ = 1, 3 and 10), with and without $k$ added predictors unrelated to the outcome ($N = 1000$, an event rate of 90%, no censoring). Because Harrell's C and the fraction of events observed had little influence, we pooled over them (Figure S7.3). Compared with $k = 3$ (threshold $S^*$ = `r f2(S_k(3, 0), 2)`), the threshold $S^*$ above which more than 5% of the predictions had $\widehat{N}_* > N$ `r shift_k(1, 0)` for $k = 1$ and `r shift_k(10, 0)` for $k = 10$. Adding noise predictors to $k = 3$ changed the threshold $S^*$ to `r f2(S_k(3, 1), 2)`. This is as expected: the more parameters are estimated, the more uncertain a prediction is, and the lower the effective sample size. Noise predictors add uncertainty without adding information, and therefore reduced the effective sample size in the same way. Over cells of time point and band of true survival, the percentage of predictions with $\widehat{N}_* > N$ differed from that with $k = 3$ by on average at most `r f2(100 * max(fe_k$mean), 1)` percentage points (maximum `r f2(100 * max(fe_k$max), 1)`) for other numbers of predictors, and by on average at most `r f2(100 * max(fe_n$mean), 1)` percentage points (maximum `r f2(100 * max(fe_n$max), 1)`) when noise predictors were added.
 
-# Seed for consistency
+```{r}
+#| label: s7-fig-settings
+#| fig-cap: "Figure S7.3. Percentage of predictions with $\\widehat{N}_* > N$ against the true survival $S(t|\\mathbf{x})$ (logit scale) for 1, 3 and 10 true predictors ($k$ continuous and $k$ binary), without (solid) and with (dashed) $k$ added noise predictors ($N = 1000$, an event rate of 90%, no censoring), pooled over Harrell's C and the fraction of events observed. Dashed horizontal line: 5%."
+#| fig-width: 8.5
+#| fig-height: 5
+plot_k_sens(res16, tempdir())
+```
+
+**Weibull shape.** We changed the Weibull shape in the reference scenario ($\gamma$ = 0.7, 1 or 1.5; Harrell's C = 0.7, event rate 90%, $N = 1000$, no censoring). The Cox model is invariant to monotone transformations of time, so the estimates, and therefore $N_*$, are the same up to the calibration of the scale. Compared with shape 1, the percentage of predictions with $\widehat{N}_* > N$ was unaffected (maximum difference `r f2(100 * max(fe_s$max), 1)` percentage points; Figure S7.4). The shape can only matter when the censoring distribution is tied to the time scale, as in the next sensitivity analysis.
+
+```{r}
+#| label: s7-fig-shape
+#| fig-cap: "Figure S7.4. Percentage of predictions with $\\widehat{N}_* > N$ against the true survival $S(t|\\mathbf{x})$ (logit scale) for a Weibull shape of 0.7, 1 and 1.5 (Harrell's C = 0.7, event rate 90%, $N = 1000$, no censoring), pooled over the time points. Dashed line: 5%."
+#| fig-width: 8.5
+#| fig-height: 5
+plot_shape_main(res16c, tempdir())
+```
+
+**Random censoring.** We combined no or uniform censoring with random censoring (loss to follow-up, independent exponential) of intensity 0 (none), 1 (regular: 10% of the patients were lost by the end of follow-up if no event occurred first) or 5 (severe: five times the hazard of loss), at event rates of 10%, 30% and 60% and a Harrell's C of 0.7, pooled over the fraction of events observed (Figure S7.5). The mean coverage of the 95% confidence interval in bands of true survival ranged from `r f2(min(ct$coverage), 3)` to `r f2(max(ct$coverage), 3)` over all combinations (Figure S7.6).
+
+```{r}
+#| label: s7-fig-cens
+#| fig-cap: "Figure S7.5. Percentage of predictions with $\\widehat{N}_* > N$ against the true survival $S(t|\\mathbf{x})$ (logit scale) with no (solid) or uniform (dashed) censoring combined with random censoring of intensity 0 (none), 1 (regular) and 5 (severe), by event rate (Harrell's C = 0.7), pooled over the fraction of events observed. Dashed horizontal line: 5%."
+#| fig-width: 11
+#| fig-height: 4
+plot_cens_main(resC, tempdir())
+```
+
+```{r}
+#| label: s7-fig-cens-coverage
+#| fig-cap: "Figure S7.6. Coverage of the 95% log(-log) confidence interval with no or uniform censoring combined with random censoring (as in Figure S7.5), pooled over time points, by event rate. The grey band is the range expected from Monte Carlo error alone for a single coverage estimate."
+#| fig-width: 10
+#| fig-height: 4.5
+plC$p2$logit
+```
+
+### Conclusion
+
+Across the settings of the simulation study (event rate, Harrell's C, Weibull shape, censoring pattern, number of predictors and noise predictors), the occurrence of $\widehat{N}_* > N$ depended mostly on the true survival probability $S(t|\mathbf{x})$ of the patient the prediction is made for. With survival probabilities $0.01 < S(t|\mathbf{x}) < 0.9$ it was very rare to have $\widehat{N}_* > N$. For uncommon events, this upper bound was higher: up to `r f2(pick("S_up", 0.1, FALSE), 2)` for an event rate of 10%. For an event rate of 1%, the upper bound could even be `r f2(pick("S_up", 0.01, FALSE), 3)` while still finding $\widehat{N}_* > N$.
+
+At the level of the model, Harrell's C mainly influences how many predictions have $\widehat{N}_* > N$, not the survival probability above which this occurs. Models with a high Harrell's C of 0.8 or 0.9 produce more extreme predictions, so more patients have a survival probability close to 0 or 1 and hence $\widehat{N}_* > N$. Such high values of C are uncommon in clinical prediction models for survival outcomes.
+
+Effective sample size is based on the variance of the prediction. To examine if $\widehat{N}_* > N$ is meaningful, the corresponding low variance must be estimated correctly. We did this by checking the coverage of the 95% log(-log) confidence interval. When the Cox model was correctly specified (misspecification was not investigated), we found good coverage of the confidence interval for all predictions, no matter their $N_*$. Coverage was good even for very high values up to $N_* = 10N$. A high effective sample size therefore reflects genuinely low variance and not an estimation artefact.
+
+{{< pagebreak >}}
+
+# Supplement 8: Heuristic exploration of $N_* > N$ early in follow-up
+
+```{r}
+#| label: s8-prep
+early <- load_res("sim_early.rds")
+fi <- early$first
+hr_hat <- fi$hr_hat
+tstar <- 10 * log(2) / (hr_hat - 1)    # time at which S(t | X = 0) / S(t | X = 1) = 2 (baseline hazard 0.1)
+```
+
+The baseline hazard of the Cox model at event time $t_j$ with $d_j$ events is estimated as $\frac{d_j}{\sum_{i \in R_j} \exp( \hat\beta^\top \mathbf{x}_i ) }$, where the denominator is the risk-weighted number at risk. This risk-weighted number at risk is the sample size that is implicitly used for the baseline hazard estimate, and it is based on $\hat\beta$, which is estimated from all events, including those in the future.
+
+Near $t=0$ in Figure 5 of the article, a single event in 10,000 patients leads to a risk-weighted number at risk of $5,000 \cdot 2 + 5,000 \cdot 1 = 15,000$. At such an early follow-up time, the hazard of a patient is $\frac{\exp(\hat\beta^\top \mathbf{x}_{\text{new}})}{\sum_{i \in R_j} \exp(\hat\beta^\top \mathbf{x}_i)}$, the product of their hazard ratio and the baseline hazard. We consider 1 binary covariate, representing men and women. For a woman ($X_1 = 0$), the risk of being this first event is $1/15,000$, which gives an effective sample size of 15,000. For a man, the risk of being this first event is $2/15,000 = 1/7,500$, which gives an effective sample size of 7,500. This matched the effective sample sizes in the simulation.
+
+In general, at the first event time the cumulative baseline hazard is estimated by $\widehat{H}_0(t_1) = 1 / \sum_{j} \mathrm{HR}_j$, with variance $1 / (\sum_{j} \mathrm{HR}_j)^2$. For a patient with hazard ratio $\mathrm{HR}_i$ we have $\widehat{S}_i \approx 1 - \mathrm{HR}_i / \sum_j \mathrm{HR}_j$ and $\operatorname{Var}(\widehat{S}_i) \approx \mathrm{HR}_i^2 / (\sum_j \mathrm{HR}_j)^2$, so that
+
+$$N_* = \frac{S(t|\mathbf{x})(1-S(t|\mathbf{x}))}{\operatorname{Var}(\widehat{S}(t|\mathbf{x}))} \approx \frac{\sum_j \mathrm{HR}_j}{\mathrm{HR}_i} = N \cdot \frac{\overline{\mathrm{HR}}}{\mathrm{HR}_i},$$
+
+with $\overline{\mathrm{HR}}$ the mean hazard ratio in the development data. We cannot estimate a variance before any events, so we investigated this heuristic at the first event time. The Cox model estimated the hazard ratio of 2 imperfectly, as `r f2(hr_hat, 3)`. With this hazard ratio, the heuristic gave an effective sample size of `r fn(fi$heuristic["women"])` for women and `r fn(fi$heuristic["men"])` for men after one event. We found `r fn(fi$n_eff["women"])` for women and `r fn(fi$n_eff["men"])` for men. The small discrepancy for women was caused by the variance from the coefficient estimation, which was very small at this early time point. When we only considered the variance from the baseline hazard estimation, we found an effective sample size of `r fn(fi$n_eff_baseline_only["women"])` for women, which matched the heuristic exactly. For men, the effect of the coefficient estimation was too small to make a difference at this early time point.
+
+The heuristic also explains why the effective sample size of a patient with average covariate values is above $N$. After centering and rescaling the variables, the mean linear predictor in the data is 0, but the mean hazard ratio is not 1, since $\mathbb{E}[\text{exp}(X\beta)]\not = \text{exp}(\mathbb{E}[X\beta])$. For $X \sim N(0,1)$ and a hazard ratio of 2, $\mathbb{E}[\text{exp}(X\ \text{ln}2)] = \text{exp}(\frac{(\text{ln}2)^2}{2})\approx 1.27$. Changing the reference category had no impact. If men were the reference category and women the alternative with a hazard ratio of $0.5$, the risk-weighted number at risk would be 7,500, the risk for men would be $1/7,500$ and the risk for women $\frac{0.5}{7500}=\frac{1}{15000}$, which gives the same heuristic effective sample sizes as before. We illustrated the mean hazard ratio for a continuous variable, for a binary variable coded as -1 and 1, and for the colon data after rescaling all variables.
+
+```{r}
+#| label: s8-mean-hr
 set.seed(1923)
 
-scale = c(10)
-shape = c(1) # shape 1 means exponential
-maxtime = 100 # maxtime
-hr = 2 # hazard ratio
-n = 5000 # number per group
+# Continuous variable, HR 2 per SD
+lp_cont <- log(2) * rnorm(1e6)
 
-events <- simsurv( dist="weibull",
-                   gammas=shape,
-                   lambdas=scale[1]^(-shape),
-                   x=data.frame(tx = c(rep(0, n), rep(1, n))),
-                   betas = c("tx" = log(hr)),
-                   maxt=maxtime)
-events$tx = c(rep(0, n), rep(1, n))
-events$eventtime[8885] <- 2.997671  # remove ties by hand
-events$eventtime[6298] <- 5.668818  # because seed is set
-time <- sort(unique(events$eventtime))
-time0 <- sort(unique(events[events$tx == 0, ]$eventtime))
-time1 <- sort(unique(events[events$tx == 1, ]$eventtime))
+# Binary variable coded -1 / 1 (HR 2 between the categories, so a coefficient of ln(2) / 2)
+lp_bin <- log(2) / 2 * c(rep(-1, 5e5), rep(1, 5e5))
 
-# Fit the models
-sf0 <- survfit(Surv(eventtime, status) ~ 1, data = events[events$tx == 0,])
-sf1 <- survfit(Surv(eventtime, status) ~ 1, data = events[events$tx == 1,])
-cox <- coxph(Surv(eventtime, status) ~ tx, data = events)
-
-# Calculate effective N and stuff
-sf_n0 <- survfit_n(sf0) |> sf_to_df(time = time0)
-sf_n1 <- survfit_n(sf1) |> sf_to_df(time = time1)
-cox_n0 <- survfit_n(survfit(cox, newdata = data.frame(tx = 0)), cox, coef=T, chaz=T)
-cox_n1 <- survfit_n(survfit(cox, newdata = data.frame(tx = 1)), cox, coef=T, chaz=T)
-
-cox_n0 <- sf_to_df(cox_n0, time = time)
-cox_n1 <- sf_to_df(cox_n1, time = time)
+# Colon data: all variables rescaled, treatment as two dummy variables
+colon_sc <- colon_df
+colon_sc$age <- c(scale(colon_sc$age))
+colon_sc$nodes <- c(scale(colon_sc$nodes))
+colon_sc$adhere <- c(scale(colon_sc$adhere))
+colon_sc$rxlev <- c(scale(as.numeric(colon_sc$rx == "Lev")))
+colon_sc$rxlev5fu <- c(scale(as.numeric(colon_sc$rx == "Lev+5FU")))
+cox_sc <- coxph(Surv(time, status) ~ age + nodes + adhere + rxlev + rxlev5fu, data = colon_sc)
+mean_hr_colon <- mean(exp(cox_sc$linear.predictors))
+neff_sc <- survfit_n(survfit(cox_sc, newdata = data.frame(age = 0, nodes = 0, adhere = 0, rxlev = 0, rxlev5fu = 0)), cox_sc) |>
+  sf_to_df(time = colon_sc$time)
 ```
 
-Our assumption/hypothesis is that the effective sample size at the beginning is this $\frac{HR_{new}}{Total risk}$ value. We cannot estimate variance before any events, so we analyse this hypothesis at the first event time. As we simulate with a HR of 2, we expect the total risk to be equal to $5000\cdot 1 + 5000 \cdot 2 = 15000$, the effective sample size for a female patient with HR of 1 should have an effective sample size of 15,000 (the denominator) and a male patient with HR of 2 should have an effective sample size of 7,500 (the denominator divided by HR).
+In a simulated sample with $X \sim N(0,1)$ and a hazard ratio of 2, the mean linear predictor was `r f2(mean(lp_cont), 3)` and the mean hazard ratio was `r f2(mean(exp(lp_cont)))`. For the binary variable coded as -1 and 1, the mean linear predictor was `r f2(mean(lp_bin), 3)` and the mean hazard ratio `r f2(mean(exp(lp_bin)))`. In the colon data, the mean linear predictor of the Cox model with age, nodes, adherence and treatment was `r f2(mean(cox_sc$linear.predictors), 3)` (it was centered by the software), while the mean hazard ratio was `r f2(mean_hr_colon)`. For a patient with the mean value of all covariates, this implied an effective sample size above the number of patients in the model ($N = `r cox_sc$n`$). Indeed, the effective sample size for a patient with a value of 0 for all rescaled covariates was `r round(neff_sc$n.eff[1])` at the first event time, close to the expected $`r cox_sc$n` \cdot `r f2(mean_hr_colon, 4)` = `r round(cox_sc$n * mean_hr_colon)`$.
 
-The Cox model imperfectly estimates the hazard ratio, estimating it as: 1.98197. The expected effective sample size for women after one event, with this new assumed HR becomes 14910 (rounded to integer), and 7523 for men. However, we find that our effective sample size is estimated as 14907 for women and 7523 for men. The discrepancy for women may be caused by the variance from coefficient estimation, event if that is very small at this early time. If we assume the coefficient is perfectly estimated and only consider the variance caused by baseline hazard estimation, we find effective sample sizes of 14910 for women. This matches our hypothesis exactly. For men, it appears the impact of the coefficient estimation is too small to be a factor in the effective sample size at this early time.
+The asymmetry in the effective sample size of equally exceptional patients (Section 4.2 of the article) can be explained in the same way. We illustrate it with the binary predictor of the first simulation, since the calculations are simple. At the first event time $t_1$ the gradient $\exp(\hat\beta^\top \mathbf{x}_{\text{new}}) w$ of the survival function with respect to the coefficient (Supplement 2) is the same in size for women and men. The risk-weighted mean of the predictor is $\overline{x} = 10,000 / 15,000 = 2/3$, so $w_{\text{women}} = \frac{1}{15,000}(\frac{2}{3} - 0) = \frac{2}{45,000}$ and $w_{\text{men}} = \frac{1}{15,000}(\frac{2}{3} - 1) = -\frac{1}{45,000}$, and with the hazard ratio of 2 for men the gradients are $\frac{2}{45,000}$ for women and $-\frac{2}{45,000}$ for men. The gradient enters the variance squared, so the uncertainty from the coefficient estimation is the same for both, as both are equally far from the population mean in the risk set. This changes when the survival of the two groups starts to differ. At the time $t^* = 10 \ln(2) / (\mathrm{HR} - 1) =$ `r f2(tstar, 2)` there are twice as many women as men left in the risk set. The risk set then consists of, for example, 2,500 women and 1,250 men, and one event increases the gradient by $\frac{1}{5,000}(\frac{2,500}{5,000} - 0) = \frac{1}{10,000}$ for women and by $2 \cdot \frac{1}{5,000}(\frac{2,500}{5,000} - 1) = -\frac{2}{10,000}$ for men. The distance of men to the population mean is now twice as large as for women, and the gradient for men changes twice as fast. The contribution of the coefficient estimation to the total variance therefore diverges between the groups over time (Figure S8.1), and so do their effective sample sizes.
 
 ```{r}
-#| label: supplement-9-2
-#| output: false
-#| echo: false
-
-print(paste0("The Cox model imperfectly estimates the hazard ratio, estimating it as: ", round(exp(cox$coefficients),5), ". The expected effective sample size for women after one event, with this new assumed HR becomes ", round(5000*exp(cox$coefficients)+5000) , " (rounded to integer), and ", round((5000*exp(cox$coefficients)+5000)/exp(cox$coefficients)), " for men. However, we find that our effective sample size is estimated as ", round(cox_n0$n.eff[1]), " for women and ", round(cox_n1$n.eff[1]), " for men. The discrepancy for women may be caused by the variance from coefficient estimation, event if that is very small at this early time. If we assume the coefficient is perfectly estimated and only consider the variance caused by baseline hazard estimation, we find effective sample sizes of ", round( (1 - cox_n0$surv[1])/ (cox_n0$surv[1] * cox_n0$std.chaz[1]^2)), " for women. This matches our hypothesis exactly. For men, it appears the impact of the coefficient estimation is too small to be a factor in the effective sample size at this early time."))
+#| label: s8-fig-variance
+#| fig-cap: "Figure S8.1. Total variance of the Cox model estimate (solid) and the part from the baseline hazard (dashed) over time, for the binary predictor (A, women and men) and the continuous predictor (B, mean and $\\pm 1$ SD) of the first simulation study. The difference between the lines is the variance from the coefficient estimation."
+#| fig-width: 9
+#| fig-height: 4
+cols_bin <- c("Cox women" = "#37293F", "Cox men" = "#9f84af")
+cols_cont <- c("Mean" = "#37293F", "+1 SD" = "#C2666B", "-1 SD" = "#2E7691")
+var_panel <- function( d, cols, title ){
+  d <- d[!is.na(d$v_total) & d$grp %in% names(cols), ]
+  long <- rbind(data.frame(d[c("grp", "time")], comp = "Total variance", v = d$v_total),
+                data.frame(d[c("grp", "time")], comp = "Baseline hazard", v = d$v_base))
+  ggplot(long, aes(time, v, colour = grp, linetype = comp)) +
+    geom_line(linewidth = 1.2) +
+    scale_colour_manual(values = cols, name = NULL) +
+    scale_linetype_manual(values = c("Total variance" = "solid", "Baseline hazard" = "dashed"), name = NULL) +
+    scale_x_continuous(name = "Time", limits = c(0, 15)) +
+    scale_y_continuous(name = "Variance of the Cox model estimate", limits = c(0, 0.003)) +
+    ggtitle(title) + theme_minimal() + theme(plot.title = element_text(face = "bold", hjust = 0))
+}
+(var_panel(early$df_bin, cols_bin, "Binary predictor") | var_panel(early$df_cont, cols_cont, "Continuous predictor")) +
+  plot_annotation(tag_levels = "A")
 ```
 
+{{< pagebreak >}}
 
-
-# Supplement 10: Heuristic explaination of asymmetry / variance attributable to coefficient
-The asymmetry in predictions for equally exceptional patients based on a continuous variable can be explained in the same way. We find that the contribution of the coefficient uncertainty to the total variance for women drops off substantially from $t=7.5$ (Figure 4D). At the time of the first event $t_1$, the gradient (Equation 5, 6) for women ($\mathbf{x}_w$, equation 8) and men ($\mathbf{x}_m$, equation 9) is: 
-
-$$\frac{\partial \hat{S}(t_1|\mathbf{x}_1=1)}{\partial \boldsymbol{\beta}} = \frac{\exp(\hat{\boldsymbol{\beta}}^\top \mathbf{x}_1)}{\sum_{i \in R_1} \exp(\hat{\boldsymbol{\beta}}^\top \mathbf{x}_i)} \left\{ \frac{\sum_{i \in R_1} x_{i,q} \exp(\hat{\boldsymbol{\beta}}^\top \mathbf{x}_i)}{\sum_{i \in R_1} \exp(\hat{\boldsymbol{\beta}}^\top \mathbf{x}_i)} - x_{1,q} \right\} = \frac{1}{15000} \left\{ \frac{10000}{15000} - 0 \right\} = \frac{2}{450000} \quad (8)$$
-$$\frac{\partial \hat{S}(t_1|\mathbf{x}_1=0)}{\partial \boldsymbol{\beta}} = \frac{\exp(\hat{\boldsymbol{\beta}}^\top \mathbf{x}_1)}{\sum_{i \in R_1} \exp(\hat{\boldsymbol{\beta}}^\top \mathbf{x}_i)} \left\{ \frac{\sum_{i \in R_1} x_{i,q} \exp(\hat{\boldsymbol{\beta}}^\top \mathbf{x}_i)}{\sum_{i \in R_1} \exp(\hat{\boldsymbol{\beta}}^\top \mathbf{x}_i)} - x_{1,q} \right\} = \frac{2}{15000} \left\{ \frac{10000}{15000} - 1 \right\} = -\frac{2}{450000} \quad (9)$$
-and because we multiply them (equation 3), sign cancels out. Therefore, the uncertainty from coefficient estimation is the same for both men and women since the variance of the coefficient is constant. Compare this to the gradient when there are twice as many women as men remaining in the risk set $(S_{women} (t_* )=2S_{men} (t_* ))$. At time $t_*$, the gradient changes $\left( \frac{\partial\hat S(t_*|\mathbf{x_{new}})}{\partial\mathbf{\beta}} - \frac{\partial\hat S(t_{*-1}|\mathbf{x_{new}})}{\partial\mathbf{\beta}}\right)$ by $\frac{1}{10000}$ for women and $\frac{-2}{10000}$ for men. With twice as many women alive as men, the distance from men to the population mean is now twice as high as for women and the gradient for men also changes at twice the rate as that for women. 
-
-We need to investigate this at a time where we have quite a lot of knowledge of the ratio of the two groups in the data. At some point in time, the ratio between the two survival probabilities will be exactly 2. We will evaluate at this time $t$. We can find this by calculating:
-$$ \frac{S(t| Woman )}{S(t | Man)} = 2 $$
-$$ \log(S(t| Woman)) - \log(S(t | Man)) = \log(2) $$
-$$ -H(t| Woman) + H(t| Man) = \log(2) $$
-$$ -10t + HR\cdot 10 t = \log(2) $$
-$$ t = \frac{10}{(HR - 1)}\log(2) $$
+# Supplement 9: Convergence of $N_*$ towards the Kaplan-Meier $N_*$
 
 ```{r}
-#| output: true
-#| echo: false
-
-print(paste0("With our HR of ", round(exp(cox$coefficients), 5), ", this time becomes: ", round( (10/(exp(cox$coefficients) - 1))*log(2), 4), " time units."))
+#| label: s9-prep
+source(here::here("code", "sim_convergence.R"))
+conv <- load_res("sim_convergence.rds")
 ```
 
-First, we look at the first event time and assume no one left the risk set. At the time of the first event, we assume that the number at risk in both groups is still $5000$. This means that $w_{men}$ is: $w_{men} = \frac{1}{5000+2\cdot 5000}\left\{\frac{2\cdot 5000}{5000+2\cdot 5000} - 1 \right\} = -\frac{1}{45000}$ and $w_{women} = \frac{2}{5000+2\cdot 5000}\left\{\frac{2\cdot 5000}{5000+2\cdot 5000} - 0 \right\} = \frac{2}{45000}$.
+The effective sample size of a Cox model prediction is above the sample size of the group early in follow-up, and decreases as events accumulate. This was investigated in a simulation study, which is reported according to the ADEMP framework (see Supplement 7).
 
-The gradient is $\mathrm{exp}(\beta^\top \mathbf{X}_{new})w$, which is $-\frac{2}{45000}$ for men and $\frac{2}{45000}$ for women. This is as expected, since men and women are both equally distant from the population mean in the risk set. Then the coefficient variance is (for one variable) the squared gradient times the variance of the coefficient, the last of which is constant.
+**Aims.** To investigate what governs this decrease.
 
-At $t=6.913$, we can calculate the increment of the gradient by hand, which should be $2\cdot w_{men} = 2\cdot\frac{1}{2500+2\cdot 1250}\left\{\frac{2\cdot 1250}{2500+2\cdot 1250} - 1 \right\} = -2\cdot\frac{1}{10000}$ for men and $w_{women} = \frac{1}{2500+2\cdot 1250}\left\{\frac{2\cdot 1250}{2500+2\cdot 1250} - 0 \right\} = \frac{1}{10000}$ for women. We see that the increment of the gradient is now twice as high for men.
+**Data-generating mechanisms.** We simulated 100 datasets of $N = 1000$ patients (500 per group) from a Weibull model with shape 0.5, a binary predictor with a hazard ratio of 2, and no censoring. We repeated this for five baseline event rates (5% to 75% of the patients in the group with $X = 0$ had an event at the end of follow-up, $t = 10$).
 
+**Estimands.** The effective sample size $N_*(t \mid X)$ of the Cox model predictions for both groups ($X = 0$ and $X = 1$). The Kaplan-Meier effective sample size of each group is the number of patients in the group, 500, and decreases as patients leave the risk set.
 
-# Supplement 11: Logistic regression has higher variance than Cox regression
-We can show that the variance of a logistic regression prediction is higher than that of a Cox regression prediction for the same patient in a simulation with no censoring. We simulate data on 10,000 patients with a time-to-event outcome based on a single continuous predictor $X\sim N(0,1)$ with a hazard ratio of 2 and an exponential baseline hazard with scale 10. We fit a Cox and make survival predictions at time $t$ and fit a logistic regression model on the outcome at time $t$ and predict at time $t$. We make these predictions with the Cox at time $t=0.01$ and $t=2$ and fit logistic regression models on the observed outcomes at these times.
+**Methods.** In each dataset we fitted a Cox model with the binary predictor and calculated $N_*$ with Equations (2) and (3) in the main text. We averaged the effective sample sizes over the 100 datasets.
+
+**Performance measures.** Figure S9.1 shows the mean effective sample size of the Cox model predictions for both groups against time (A), the number of events (B) and the proportion of all events that had occurred (C).
+
+### Results
+
+The curves of the different event rates only coincided when they were plotted against the proportion of all events: the effective sample size was determined by how much of the information in the data had been observed, not by the time or by the number of events. The effective sample size converged to the group size, the dotted line at 500, as the events accumulated.
 
 ```{r}
-#| label: supplement-11
-#| echo: false
-#| output: false
+#| label: s9-fig
+#| fig-cap: "Figure S9.1. Effective sample size of Cox model predictions based on a single binary variable (HR 2; $X = 0$ and $X = 1$) as a function of time (A), the number of events (B) and the proportion of all events (C), for five baseline event rates. Dotted lines: $N = 1000$ and the group size of 500."
+#| fig-width: 9
+#| fig-height: 6
+plot_convergence(conv)
+```
 
+{{< pagebreak >}}
+
+# Supplement 10: Logistic regression has higher variance than Cox regression
+
+We showed that the variance of a logistic regression prediction was higher than that of a Cox regression prediction for the same patient in a simulation without censoring. We simulated data on 10,000 patients with a time-to-event outcome based on a single continuous predictor $X\sim N(0,1)$ with a hazard ratio of 2 and an exponential baseline hazard with scale 10. We fitted a Cox model and made survival predictions at times $t=0.01$ and $t=2$. We also fitted logistic regression models on the observed outcomes (event before $t$ or not) at these times and predicted at the same times. To check where the difference came from, we also fitted Cox models that only used the data up to $t$ (patients with an event before $t$ got an event at $t$, all others were censored at $t$ or later).
+
+```{r}
+#| label: s10-sim
 set.seed(1923)
 
 X <- rnorm(10000, 0, 1)
 hazard_ratio <- 2
-shape <- 1 # shape 1 means exponential
-scale <- 10 # scale parameter for the Weibull distribution
+shape <- 1                          # shape 1 means exponential
+scale <- 10
 
-df <- simsurv( dist="weibull",
-               gammas=shape,
-               lambdas=scale[1]^(-shape),
-               x=data.frame(X = X),
-               betas = c("X" = log(hazard_ratio)),
-               maxt=100)
+df <- simsurv(dist = "weibull", gammas = shape, lambdas = scale^(-shape), x = data.frame(X = X),
+              betas = c("X" = log(hazard_ratio)), maxt = 100)
 df$X <- X
 
-# Evaluate outcome at t=5 and generate log.reg event
-df$status_start <- ifelse(df$eventtime <= 0.01, df$status, 0)
-df$status_at_t <- ifelse(df$eventtime <= 2, df$status, 0)
-df$time_1 <- ifelse(df$eventtime >= 0.01, df$eventtime, 0.01)
-df$time_2 <- ifelse(df$eventtime >= 2, df$eventtime, 2)
+times <- c(0.01, 2)
+mean_pat <- data.frame(X = 0)
 
-glm1 <- glm(status_start ~ X, family = binomial(link = "logit"), data = df)
-glm2 <- glm(status_at_t ~ X, family = binomial(link = "logit"), data = df)
-cox <- coxph( Surv(eventtime, status)~X, data = df)
-cox_1 <- coxph( Surv(time_1, status_start)~X, data = df)
-cox_2 <- coxph( Surv(time_2, status_at_t)~X, data = df)
-
-mean <- as.data.frame(t(c(X=0)))
-
-## ---- glm1 ----
-pred1 <- predict(glm1, newdata = mean, type = "link", se.fit = TRUE)
-
-eta1  <- -pred1$fit
-se1   <- pred1$se.fit
-
-# 95% CI on link scale
-lwr1  <- eta1 - 1.96 * se1
-upr1  <- eta1 + 1.96 * se1
-
-# Transform to probability scale
-fit1 <- list()
-fit1$pi.pred <- plogis(eta1)
-fit1$lower   <- plogis(lwr1)
-fit1$upper   <- plogis(upr1)
-fit1$pi.se_link <- se1
-
-# optional: delta-method SE on probability scale
-fit1$pi.se_resp <- fit1$pi.pred * (1 - fit1$pi.pred) * se1
-fit1$n_eff_LR <- (fit1$pi.pred*(1-fit1$pi.pred)) / fit1$pi.se_resp^2
-
-
-## ---- glm2 ----
-pred2 <- predict(glm2, newdata = mean, type = "link", se.fit = TRUE)
-
-eta2  <- -pred2$fit
-se2   <- pred2$se.fit
-
-lwr2  <- eta2 - 1.96 * se2
-upr2  <- eta2 + 1.96 * se2
-
-fit2 <- list()
-fit2$pi.pred <- plogis(eta2)
-fit2$lower   <- plogis(lwr2)
-fit2$upper   <- plogis(upr2)
-fit2$pi.se_link <- se2
-fit2$pi.se_resp <- fit2$pi.pred * (1 - fit2$pi.pred) * se2
-fit2$n_eff_LR <- (fit2$pi.pred*(1-fit2$pi.pred)) / fit2$pi.se_resp^2
-
-
-sf <- survfit(cox, newdata = mean, model = T)
-sf <- survfit_n(sf, cox) |> sf_to_df(time = c(0.01, 2))
-sf_1 <- survfit(cox_1, newdata = mean, model = T)
-sf_1 <- survfit_n(sf_1, cox_1) |> sf_to_df(time = 0.01)
-sf_2 <- survfit(cox_2, newdata = mean, model = T)
-sf_2 <- survfit_n(sf_2, cox_2) |> sf_to_df(time = 2)
-
-sf$surv[1]/(fit1$pi.pred)
-sf$surv[2]/(fit2$pi.pred)
-sf_1$surv/(fit1$pi.pred)
-sf_2$surv/(fit2$pi.pred)
-
-(sf$surv[1]^2*sf$std.err[1]^2)/fit1$pi.se_resp^2
-(sf$surv[2]^2*sf$std.err[2]^2)/fit2$pi.se_resp^2
-(sf_1$surv^2*sf_1$std.err^2)/fit1$pi.se_resp^2
-(sf_2$surv^2*sf_2$std.err^2)/fit2$pi.se_resp^2
-
-sf$n.eff
-fit1$n_eff_LR
-fit2$n_eff_LR
-sf_1$n.eff
-sf_2$n.eff
-
-(sf$upper[1]-sf$lower[1])/(fit1$upper-fit1$lower)
-(sf$upper[2]-sf$lower[2])/(fit2$upper-fit2$lower)
-(sf_1$upper-sf_1$lower)/(fit1$upper-fit1$lower)
-(sf_2$upper-sf_2$lower)/(fit2$upper-fit2$lower)
-
-```
-
-The prediction at $t=0.01$ for both models is nearly identical (0.00003% difference), with any difference being explained by finite sample behaviour, rather than bias. The variance of the Cox model prediction is only 66% of the logistic regression model variance. This also results in a much larger effective sample size for the Cox model prediction compared to the LR: 12684 vs 8722. The width of the confidence interval from the Cox model is only 75.7% that of the logistic regression model. When comparing it to the Cox model fit on the data restricted to $t=0.01$, we see that the variance of the Cox model prediction is only over 99% of the logistic regression model variance, showing that most of the increased efficiency of the Cox model comes from the estimation of the coefficients based on data throughout the follow-up. Effective sample size is also the same for the restricted Cox model compared to logistic regression.
-
-At $t=2$ the predictions are again nearly identical (0.006% difference). The variance of the Cox model prediction is much lower, at 79% of the logistic regression variance. This is also reflected in the effective sample size, as the Cox model still has higher effective sample size at 10561 compared to 8489 for the LR model. The width of the confidence interval from the Cox model is only 88.7% that of the logistic regression model. When restricting the Cox model to data up to $t=2$, we see that the variance of the Cox model prediction is 97% of the logistic regression model variance. The effective sample size of the Cox model prediction has now similarly increased to 200 above the logistic regression model estimate. This indicates the increased efficiency over a logistic regression model due to knowing the survival times in addition to the status at time $t=2$.
-
-
-# Supplement 12: Average hazard ratio in the data is above 1
-The explanations in section 4 are based on simulations where all hazard ratios are above 1, resulting in a risk-weighted number at risk that is higher than the development sample size. One could suggest changing the reference category and reduce the risk-weighted number at risk. If men were the reference category and women the alternative with a hazard ratio of $0.5$, then the risk-weighted number at risk would be 7,500. The risk for men would be  1/7,500 and the risk for women $\frac{0.5}{7500}=\frac{1}{15000}$, providing the same heuristic effective sample size as before.
-
-After normalizing variables by centering and rescaling, the mean hazard ratio in the development data will be above 1. For a $N(0,1)$ variable with a HR of 2, the mean linear predictor in the data is 0, but the mean HR is not equal to 1, since $\mathbb{E}[\text{exp}(X\beta)]\not = \text{exp}(\mathbb{E}[X\beta]))$. As an example, for $X \sim N(0,1)$ and a HR of 2, $\mathbb{E}[\text{exp}(X\ \text{ln}2)] = \text{exp}(\frac{\text{ln}2^2}{2})\approx 1.2715$. This transformation increases the risk-weighted number at risk to naturally be larger than the development population, which contributes to the larger effective sample sizes of Cox model predictions for patients with the population mean risk.
-
-We can investigate this in practice:
-```{r}
-X = rnorm(1000000, 0, 1)
-HR = 2
-beta = log(HR)
-
-lin_pred = beta*X
-HRs = exp(lin_pred)
-
-mean(lin_pred)
-mean(HRs)
-```
-
-So we observe that the mean linear predictor (X\beta) is 0 (ignoring some monte-carlo standard error), while the mean hazard ratio is 1.27. 
-
-```{r}
-N = 1000000
-p = 0.5
-X = c(rep(0, N*(1-p)), rep(1, N*p))
-HR = 2
-beta = log(HR)
-
-X = X - p
-X = X/sqrt(p*(1-p))
-
-lin_pred = beta*X
-HRs = exp(lin_pred)
-
-mean(lin_pred)
-mean(HRs)
-```
-Similarly, we can consider a case where we have one categorical covariate with two categories. This is usually presented as a 0-1 scenario with a beta that only counts for the 1 category. This can be represented by a +1/-1 scenario with a beta that is half as high as well. In this situation, the mean linear predictor in the population is again 0, but the mean hazard ratio is again above 1.
-
-A more complicated example can be illustrated in the colon data, if we rescale all variables first.
-
-```{r}
-colon_df_scaled <- colon_df
-colon_df_scaled$age <- c(scale(colon_df_scaled$age))
-colon_df_scaled$nodes <- c(scale(colon_df_scaled$nodes))
-colon_df_scaled$adhere <- c(scale(colon_df_scaled$adhere))
-# add dummy variables for rx and rescale
-colon_df_scaled$rx1 <- ifelse(colon_df_scaled$rx == "Obs", 1, 0)
-colon_df_scaled$rx2 <- ifelse(colon_df_scaled$rx == "Lev", 1, 0)
-colon_df_scaled$rx3 <- ifelse(colon_df_scaled$rx == "Lev+5FU", 1, 0)
-colon_df_scaled$rx1 <- c(scale(colon_df_scaled$rx1))
-colon_df_scaled$rx2 <- c(scale(colon_df_scaled$rx2))
-colon_df_scaled$rx3 <- c(scale(colon_df_scaled$rx3))
-
-cox <- coxph(Surv(time, status) ~ age + nodes + adhere + rx1 + rx2 + rx3, data = colon_df_scaled)
-mean(cox$linear.predictors)
-mean(exp(cox$linear.predictors))
-
-neff <- survfit_n(survfit(cox, newdata = data.frame(age=0, nodes=0, adhere=0, rx1=0, rx2=0, rx3=0)), cox) |> sf_to_df(time = colon_df_scaled$time)
-```
-
-Again in such an example we see that the mean linear predictor in the Cox model based on age, nodes, adhere and treatment is 0 (with some small finite-sample error), while the mean hazard ratio in the population is 1.10. For a patient with the mean covariate values, this would already imply that their effective sample size would be above the total sample size of 911 patients. And indeed, the effective sample size for a patient with a 0 for all covariate values is 1008 at the first event time, which is close to the expected 911*1.1046 = 1006. The small difference can be explained by differences in population means due to the 18 patients with missing values in any of the variables.
-
-
-# Supplement 13: Cox model predictions confidence intervals have good coverage
-We suggest a Cox model based on two variables, one binary and one continuous and investigate the coverage for a few patients with different covariate values. Our variables are $X_1$ binary assigned with a Bernoulli($0.5$) distribution and $X_2$ continuous assigned with a $N(0,1)$ distribution. We assume a HR of 2 for both variables and a constant baseline hazard of 1. Each iteration is with $N=1000$. To estimate the coverage, we use $1999$ replications. 
-
-We see that coverage is good at 95% across all time points just after the start, even though effective sample size is higher than the development sample size throughout. Only at the very beginning is there under coverage, but this is because the first event has not taken place in all of the simulation runs and before the first event there is always under coverage.
-```{r}
-source("code/sim_files.R")
-sim_coverage( reps = 1999, newpatient = data.frame(X1=0, X2=0))
-sim_coverage( reps = 1999, newpatient = data.frame(X1=1, X2=0))
-sim_coverage( reps = 1999, newpatient = data.frame(X1=0, X2=-1))
-```
-
-
-# Supplement 14: Model-based standard errors are equal to Monte Carlo standard errors
-Additionally, we check the model-based standard errors against the empirical standard errors for the same simulation as in the previous section (Supplement 11). We find that they are extremely close, which indicates that the model-based standard errors are accurate and that the effective sample size calculations based on these standard errors are also accurate. There are indications of a slight overestimation of the standard error early on in follow-up, which could be responsible for any slight overcoverage early on in follow-up.
-```{r}
-sim_se_comparison( reps = 5000, newpatient = data.frame(X1=0, X2=0))
-
-sim_se_comparison( reps = 5000, newpatient = data.frame(X1=1, X2=1))
-```
-
-# Supplement 15: Effective sample size in open real-world datasets
-
-To investigate how often the behaviour described in the main text occurs in practice, we computed effective sample sizes for Cox models fitted to eight open datasets (colon, pbc, veteran, lung, rotterdam, gbsg, flchain, mgus2; optionally support). For each dataset we pre-specified a set of candidate predictors (skewed positive biomarkers were log-transformed beforehand) and fitted a Cox model (Efron ties) with backward elimination on AIC. The delta-method variance does not account for the selection step, so $N_*$ is conditional on the selected model. For every patient in the development data, $N_*$ was calculated at the time points at which 1%, 10%, 25%, 40%, 60%, 75% and 90% of all events had occurred. Because N* is expressed relative to the development sample size, results are reported as $N_*/N$.
-
-```{r}
-#| label: fig-supplement-15-setup
-#| include: false
-source(here::here("code", "ess_realworld.R"))
-cache <- here::here("results", "ess_realworld.rds")
-if (file.exists(cache)) {
-  res <- readRDS(cache)
-} else {
-  res <- run_all()
-  dir.create(dirname(cache), showWarnings = FALSE, recursive = TRUE)
-  saveRDS(res, cache)
+# Logistic regression for the outcome at time t: survival probability, 95% CI and N*
+lr_pred <- function( t ){
+  y <- ifelse(df$eventtime <= t, df$status, 0)
+  fit <- glm(y ~ X, family = binomial(link = "logit"), data = df)
+  pred <- predict(fit, newdata = mean_pat, type = "link", se.fit = TRUE)
+  eta <- -pred$fit
+  p <- plogis(eta)
+  se <- p * (1 - p) * pred$se.fit
+  list(S = p, lower = plogis(eta - 1.96 * pred$se.fit), upper = plogis(eta + 1.96 * pred$se.fit),
+       se = se, n_eff = p * (1 - p) / se^2)
 }
-sm <- summarise_ess(res)
-pl <- make_plots(res, here::here("results"))
-```
 
-```{r}
-#| label: tbl-supplement-15-datasets
-#| echo: false
-tab <- unique(res[res$spec == "backward_efron",
-c("dataset", "n_raw", "n_total", "d_total", "n_par", "cstat", "sd_lp")])
-tab$epv <- tab$d_total / tab$n_par
-
-knitr::kable(
-tab[, c("dataset", "n_raw", "n_total", "d_total", "n_par", "epv", "cstat", "sd_lp")],
-digits = c(0, 0, 0, 0, 0, 1, 3, 2),
-row.names = FALSE,
-col.names = c("Dataset", "Patients in data", "Complete cases", "Events",
-"Predictors kept", "Events per predictor", "Harrell's C", "SD of linear predictor"),
-caption = "Datasets and backward-selected Cox models. Harrell's C is apparent (development data) and covers the full follow-up."
-)
-```
-
-```{r}
-#| label: fig-supplement-15-ratio
-#| echo: false
-#| fig-cap: "Effective sample size $N_*$ against predicted survival for the backward-selected Cox model in each dataset. The y-axis runs from 0 to $2N$ in each panel; points above $2N$ are not drawn (see the next figure). Colours indicate the fraction of all events observed at the horizon. Dashed line: $N_* = N$; dotted line: $S = 0.2$."
-pl$scatter
-
-```
-
-```{r}
-#| label: fig-supplement-15-above
-#| echo: false
-#| fig-cap: "Percentage of predictions with $N_* > 2N$, by dataset and by the fraction of events observed at the horizon."
-pl$above2N
-```
-
-```{r}
-#| label: fig-supplement-15-events
-#| echo: false
-#| fig-cap: "Distribution of $N_*/N$ across patients by the fraction of events observed at the horizon."
-pl$box
-```
-
-```{r}
-#| label: tbl-supplement-15-rule
-#| echo: false
-knitr::kable(
-  sm$rule_table, digits = 1,
-  col.names = c("Predicted survival", "Events observed", "Patient-horizons", "% with N* > N", "95th percentile N*/N", "Maximum N*/N"),
-  caption = "Proportion of predictions with $N_* > N$ by predicted survival and fraction of events observed (backward-selected Cox models; all datasets pooled)."
-)
-```
-
-<!-- Write the interpretation after inspecting the results: -->
-<!--  - share of patients with N* > N overall and within S > 0.2 & >50% events (tbl-supplement-15-rule) -->
-<!--  - whether early surplus follows the mean-HR / patient-HR ratio (sm$early_check) -->
-<!--  - drivers: surplus_drivers(res), driver_correlations(), plot_surplus_drivers() -->
-# Supplement 16: Simulation studies of the behavior of $N_*$ (ADEMP)
-
-Two simulation studies are reported in Section 4. Simulation 1 describes $N_*$ early in follow-up, without censoring, in a single binary or continuous predictor. Simulation 2 describes $N_*$ over the whole follow-up in a model with multiple predictors, for a wide range of overall event rates, model strengths and censoring patterns. Both are reported according to the ADEMP framework (aims, data-generating mechanisms, estimands, methods, performance measures) [@morris2019].
-
-## Simulation 1: early follow-up and the first-event heuristic
-
-**Aims.** (1) To show that $N_* > N$ occurs early in follow-up for patients with a lower hazard than the average patient. (2) To show how the variance of the survival estimate is divided into a part from the baseline hazard and a part from the coefficient, and how this division changes over time. (3) To compare $N_*$ at the first events with the heuristic $N_* \approx N \cdot \overline{\mathrm{HR}} / \mathrm{HR}_i$.
-
-**Data-generating mechanisms.** $N = 10\,000$ patients without censoring, constant baseline hazard $h_0(t) = 1$ and one predictor with hazard ratio 2: either a binary $X_1$ (exactly half of the patients with $X_1 = 1$) or a continuous $X_2 \sim N(0,1)$.
-
-**Estimands.** The survival probability and its effective sample size for patients with $X_1 = 0$ and $X_1 = 1$, and for patients with $X_2 = -1, 0$ and $1$, over time.
-
-**Methods.** A Cox model with the predictor was fitted to the data and $N_*$ was calculated with Equations (2) and (3). The variance was split into the baseline hazard term and the coefficient term. For the binary predictor, Kaplan-Meier estimates in the two groups were used as a reference.
-
-**Performance measures.** $N_*$ over time, and the proportion of the variance that originates from the baseline hazard.
-
-**The first-event heuristic.** At the first event time $t_1$, $\widehat{H}_0(t_1) = 1 / \sum_{j} \mathrm{HR}_j$ and its variance is $1 / (\sum_{j} \mathrm{HR}_j)^2$. For a patient with hazard ratio $\mathrm{HR}_i$, $\widehat{S}_i \approx 1 - \mathrm{HR}_i / \sum_j \mathrm{HR}_j$ and $\operatorname{Var}(\widehat{S}_i) \approx \mathrm{HR}_i^2 / (\sum_j \mathrm{HR}_j)^2$, so that
-$$N_* = \frac{S(1-S)}{\operatorname{Var}(\widehat{S})} \approx \frac{\sum_j \mathrm{HR}_j}{\mathrm{HR}_i} = N \cdot \frac{\overline{\mathrm{HR}}}{\mathrm{HR}_i},$$
-with $\overline{\mathrm{HR}}$ the mean hazard ratio in the development data. For the binary predictor, $\overline{\mathrm{HR}} = 1.5$, so $N_* \approx 15\,000$ for $X_1 = 0$ and $7\,500$ for $X_1 = 1$. The coefficient term is negligible at the first event and grows with the number of events.
-
-## Simulation 2: when does $N_*$ exceed $N$, and is $N_*$ reliable?
-
-### Aims
-
-1. To determine for which true survival probabilities the estimated effective sample size exceeds the development sample size ($\widehat{N}_* > N$), and how this depends on the overall proportion of patients with an event, the strength of the model (Harrell's C of the true linear predictor) and the type of censoring.
-2. To determine whether the variance underlying $\widehat{N}_*$ is reliable, which is assessed by the coverage of the 95% confidence interval. $N_*$ is the prediction variance re-expressed with the binomial variance, so a large $N_*$ is only meaningful if the variance is accurate.
-
-### Data-generating mechanisms
-
-Event times followed a Weibull proportional hazards model with $H_0(t) = t^{\gamma}$ and $\gamma = 1$. The model contained three standard normal and three binary (prevalence 0.5) true predictors with equal contributions to the linear predictor (coefficients 1 and 2, respectively). All coefficients were multiplied by a constant such that Harrell's C of the true linear predictor equalled a target value. This was determined in a large sample, truncated at the time at which the target proportion of patients had experienced an event.
-
-The main simulation was a full factorial design with three factors (40 scenarios):
-
-- Harrell's C of the true linear predictor: 0.6, 0.7, 0.8 and 0.9.
-- Overall proportion of patients with an event, $e$: 5%, 10%, 30%, 60% and 90%. The sample size was $N = 500 / e$ so that every scenario contains about 500 events ($N = 10\,000$ for $e = 5\%$ and $N = 556$ for $e = 90\%$).
-- Censoring: either a common end of follow-up for all patients, or administrative censoring mimicking registry data with staggered inclusion. In the latter, the potential follow-up of each patient was uniformly distributed between 20% and 100% of the maximum follow-up (for example, between 1 and 5 years), so nobody was censored early. The maximum follow-up was calibrated such that the overall proportion of patients with an event was $e$.
-
-Sensitivity analyses varied one factor at a time (Section "Sensitivity analyses"): the number of predictors ($k = 1, 3, 10$ continuous and $k$ binary predictors), the addition of $k$ predictors unrelated to the outcome, the Weibull shape ($\gamma = 0.7, 1, 1.5$) and random censoring (loss to follow-up).
-
-### Estimands
-
-The estimand is the true survival probability $S(t \mid x)$ for 200 fixed covariate profiles, located at quantiles 0.0005, 0.002, 0.01 to 0.99, 0.998 and 0.9995 of the true linear predictor, at seven time points. These are the times at which 5%, 10%, 25%, 40%, 60%, 75% and 90% of all events in the population had been observed. The reference effective sample size is
-$$N_*^{\text{true}} = \frac{S(1-S)}{\operatorname{Var}_{\text{emp}}(\widehat{S})},$$
-with $\operatorname{Var}_{\text{emp}}$ the variance of $\widehat{S}(t \mid x)$ over the replications.
-
-### Methods
-
-In each replication a Cox model (Efron ties) with all predictors (true predictors and, where applicable, noise predictors) was fitted. $\widehat{S}$ and its delta-method standard error were obtained with `survfit`, and $\widehat{N}_* = \widehat{S}(1-\widehat{S})/\widehat{\operatorname{SE}}(\widehat{S})^2$. Confidence intervals were calculated on the log-log scale.
-
-### Performance measures
-
-For each prediction (covariate profile, time point, simulated dataset) the true survival probability $S$ is known from the data-generating model, and $\widehat{N}_*$ is calculated from the fitted model. The primary measure is the percentage of predictions with $\widehat{N}_* > N$ among all predictions with the same true $S$; equivalently, the probability that a prediction for a patient with true survival $S$ has $\widehat{N}_* > N$. Predictions are grouped by $S$ on the logit scale (bins of 0.2 to 0.4). The other measures, calculated per scenario, profile and time point, are the ratio of the mean estimated variance to the empirical variance, and the coverage of the 95% confidence interval. All measures are shown as a function of the true survival probability on the logit scale (symmetric around 0.5), pooled over the time points, Harrell's C values and censoring settings, with every prediction weighted equally; the supplementary figures show them separately. The profiles are equally spaced quantiles of the linear predictor, so each stands for the same share of the population, and the percentage over all predictions at a time point is the share of the population with $\widehat{N}_* > N$. Profiles at the extremes of the linear predictor (below the 1st and above the 99th percentile) are extrapolations in a sample of this size and are excluded from the summaries. The true survival at which the percentage of predictions with $\widehat{N}_* > N$ crosses 5% was determined (by interpolation) for each event rate, and for each scenario separately for the table. Its relation with the overall event proportion $e$ was described by $1 - S^* = a\,e^{b}$, fitted by least squares on the log-log scale.
-
-### Number of replications
-
-The number of replications was determined in a pilot ($R = 300$ in selected scenarios, including the most demanding ones): the Monte Carlo standard error of each performance measure was estimated per cell (time point by band of true survival), and the number of replications was chosen such that the 90th percentile of the required numbers met a Monte Carlo standard error of 1 percentage point for $P(\widehat{N}_* > N)$, 0.5 percentage points for coverage and 5% for the variance ratio. This gave $R = $ <!-- fill in from pilot_mc() --> replications per scenario.
-
-### Limitations
-
-The fitted model is correctly specified, apart from the noise predictors in the sensitivity analysis, and no variable selection is performed. The simulation therefore isolates the behavior of the variance estimator. Misspecification, variable selection and overoptimism are not investigated. Predictions with a true survival below 0.01 rely on very few events in the replications, and their empirical variances are imprecise.
-
-### Code
-
-```{r}
-#| label: sim-supplement-16-code
-#| eval: false
-#| file: code/sim_guardrails.R
-```
-
-```{r}
-#| label: sim-supplement-16-run
-#| include: false
-source(here::here("code", "sim_guardrails.R"))
-cacheM <- here::here("results", "sim_main.rds")
-if (file.exists(cacheM)) {
-  resM <- readRDS(cacheM)
-} else {
-  resM <- run_all(make_scen("factorial"))
-  dir.create(dirname(cacheM), showWarnings = FALSE, recursive = TRUE)
-  saveRDS(resM, cacheM)
+# Cox model on all data, and restricted to the data up to t
+cox_all <- coxph(Surv(eventtime, status) ~ X, data = df)
+sf_all <- survfit_n(survfit(cox_all, newdata = mean_pat, model = TRUE), cox_all) |> sf_to_df(time = times)
+cox_pred <- function( t ){
+  d <- df
+  d$status_t <- ifelse(d$eventtime <= t, d$status, 0)
+  d$time_t <- ifelse(d$eventtime >= t, d$eventtime, t)
+  cox_t <- coxph(Surv(time_t, status_t) ~ X, data = d)
+  survfit_n(survfit(cox_t, newdata = mean_pat, model = TRUE), cox_t) |> sf_to_df(time = t)
 }
-plM <- plot_main(resM, here::here("results"))     # supplement: columns = C, rows = censoring
-plM1 <- plot_main1(resM, here::here("results"))   # main figures: one panel, pooled
-thr <- fit_threshold(resM)
-```
 
-### Results
-
-<!-- Fill in after the simulation has been run. -->
-
-```{r}
-#| label: fig-supplement-16-main
-#| echo: false
-#| fig-cap: "Percentage of predictions with $\\widehat{N}_* > N$ as a function of the true survival probability (logit scale), by overall proportion of patients with an event. Pooled over Harrell's C (0.6 to 0.9), both censoring settings and the seven time points. Dashed line: 5%; labels: true survival at which the line crosses 5%."
-plM1$p1$logit
-```
-
-```{r}
-#| label: fig-supplement-16-coverage-n
-#| echo: false
-#| fig-cap: "Coverage of the 95% log-log confidence interval against $N/N_*$ (log scale; $N_*$ from the empirical variance over the replications), by overall proportion of patients with an event. Pooled over Harrell's C, censoring and time points. Left of the dotted line: $N_* > N$. The grey band is the range expected from Monte Carlo error alone."
-plot_coverage_N(resM, here::here("results"))
+lr_tab <- sapply(1:2, function( i ){
+  lr <- lr_pred(times[i]); sf_t <- cox_pred(times[i])
+  v <- c(100 * (sf_all$surv[i] / lr$S - 1),
+         sf_all$surv[i]^2 * sf_all$std.err[i]^2 / lr$se^2,
+         sf_all$n.eff[i], lr$n_eff,
+         (sf_all$upper[i] - sf_all$lower[i]) / (lr$upper - lr$lower),
+         sf_t$surv^2 * sf_t$std.err^2 / lr$se^2,
+         sf_t$n.eff)
+  v <- as.numeric(v)
+  names(v) <- c("diff", "var_ratio", "n_cox", "n_lr", "ci_ratio", "var_ratio_restricted", "n_cox_restricted")
+  v
+})
+colnames(lr_tab) <- c("t = 0.01", "t = 2")
 ```
 
 ```{r}
-#| label: fig-supplement-16-admin
-#| echo: false
-#| fig-cap: "As the previous figure, separately for a common end of follow-up and staggered entry (administrative censoring); pooled over Harrell's C. The lines coincide."
-plot_admin(resM, here::here("results"))$logit
+#| label: s10-table
+tb <- data.frame(
+  Measure = c("Difference between the predicted survival of Cox and logistic regression (%)",
+              "Variance of Cox / variance of logistic regression",
+              "$N_*$ of the Cox model", "$N_*$ of logistic regression",
+              "Width of the 95% CI, Cox / logistic regression",
+              "Variance of Cox restricted to the data up to $t$ / variance of logistic regression",
+              "$N_*$ of the Cox model restricted to the data up to $t$"),
+  t1 = NA, t2 = NA)
+fm <- function( x, d1 ) c(formatC(x[1], digits = d1, format = "f"), formatC(x[2], digits = 3, format = "f"),
+                      fn(x[3]), fn(x[4]), formatC(x[5], digits = 3, format = "f"),
+                      formatC(x[6], digits = 3, format = "f"), fn(x[7]))
+tb$t1 <- fm(lr_tab[, 1], 4); tb$t2 <- fm(lr_tab[, 2], 3)
+knitr::kable(tb, row.names = FALSE, align = c("l", "r", "r"),
+             col.names = c("", "t = 0.01", "t = 2"),
+             caption = "Table S10.1. Cox model and logistic regression predictions for a patient with the mean value of X.")
 ```
 
-```{r}
-#| label: tbl-supplement-16-admin
-#| echo: false
-knitr::kable(admin_check(resM)$max_abs_diff, digits = 3, row.names = FALSE,
-  col.names = c("Overall proportion with event", "Largest difference in the percentage with N* > N", "Largest difference in coverage"),
-  caption = "Largest absolute difference between staggered entry and a common end of follow-up over the bins of the true survival probability (at least 20 predictions per bin).")
-```
+The predictions of the Cox model and the logistic regression model were nearly identical at both times (Table S10.1), with the differences explained by finite sample behavior and not by bias. At $t=0.01$, the variance of the Cox model prediction was only `r round(100 * lr_tab["var_ratio", 1])`% of the logistic regression variance. This resulted in a much larger effective sample size for the Cox model prediction than for the logistic regression prediction: `r fn(lr_tab["n_cox", 1])` vs `r fn(lr_tab["n_lr", 1])`. The width of the confidence interval of the Cox model was `r round(100 * lr_tab["ci_ratio", 1])`% of that of logistic regression. When the Cox model only used the data up to $t=0.01$, its variance was `r round(100 * lr_tab["var_ratio_restricted", 1])`% of the logistic regression variance and the effective sample sizes were the same. Most of the increased efficiency of the Cox model therefore came from estimating the coefficient with the data from the entire follow-up.
+
+At $t=2$, the variance of the Cox model prediction was `r round(100 * lr_tab["var_ratio", 2])`% of the logistic regression variance, the effective sample size was `r fn(lr_tab["n_cox", 2])` for the Cox model and `r fn(lr_tab["n_lr", 2])` for logistic regression, and the width of the confidence interval was `r f2(100 * lr_tab["ci_ratio", 2], 1)`% of that of logistic regression. When the Cox model was restricted to the data up to $t=2$, its variance was `r f2(100 * lr_tab["var_ratio_restricted", 2], 1)`% of the logistic regression variance, and its effective sample size was `r fn(lr_tab["n_cox_restricted", 2] - lr_tab["n_lr", 2])` above that of logistic regression. This indicated that the increased efficiency was due to knowing the survival times in addition to the status at time $t=2$.
+
+{{< pagebreak >}}
+
+# Supplement 11: Effective sample size from a bootstrapped variance estimator
 
 ```{r}
-#| label: fig-supplement-16-share
-#| echo: false
-#| fig-cap: "Percentage of all predictions with $\\widehat{N}_* > N$ against the fraction of events observed, by Harrell's C and overall proportion of patients with an event (common end of follow-up). Harrell's C does not move the threshold in true survival, but changes how many patients lie above it."
-plot_share(resM, here::here("results"))
-```
-
-```{r}
-#| label: fig-supplement-16-threshold
-#| echo: false
-#| fig-cap: "True survival $S^*$ above which more than 5% of the predictions have $\\widehat{N}_* > N$, against the overall proportion of patients with an event (log-log scale on the risk $1 - S^*$). Points: one per Harrell's C, censoring setting and event rate; solid line: fitted $1 - S^* = a e^{b}$; dashed: proportional ($b = 1$)."
-plot_threshold(thr, here::here("results"))
-```
-
-```{r}
-#| label: fig-supplement-16-pgtn
-#| echo: false
-#| fig-cap: "Percentage of predictions with $\\widehat{N}_* > N$ as a function of the true survival probability (logit scale), by overall proportion of patients with an event (colour), Harrell's C (columns) and censoring (rows). Lines: pooled over the seven time points; dots: each time point (fraction of events observed) separately. The dashed line is 5%."
-plM$p1$logit
-```
-
-```{r}
-#| label: fig-supplement-16-coverage
-#| echo: false
-#| fig-cap: "Coverage of the 95% log-log confidence interval as a function of the true survival probability (logit scale), pooled over time points. Layout as in the previous figure. The grey band is the range expected from Monte Carlo error alone for a single coverage estimate."
-plM$p2$logit
-```
-
-```{r}
-#| label: tbl-supplement-16-limits
-#| echo: false
-lim <- S_limits(resM, tol = 0.05)
-lim <- lim[order(lim$admin, lim$e, lim$C), ]
-lim$admin <- ifelse(lim$admin, "Staggered entry", "Common end")
-knitr::kable(
-  lim[, c("admin", "e", "C", "N", "S_lower", "S_upper", "min_cov")], digits = 3, row.names = FALSE,
-  col.names = c("Censoring", "Proportion with event", "C", "N", "Lower limit of S", "Upper limit of S", "Minimum coverage within limits"),
-  caption = "Range of the true survival probability in which the probability that $\\widehat{N}_* > N$ is at most 5% (pooled over time points). NA: the probability did not exceed 5% in the observed range of survival probabilities."
-)
-```
-
-```{r}
-#| label: fig-supplement-16-by-fraction
-#| echo: false
-#| fig-cap: "Percentage of predictions with $\\widehat{N}_* > N$ against the true survival probability for each fraction of events observed (common end of follow-up, $C = 0.7$; colours as in the main figure)."
-plot_erate(resM[!resM$admin, ], here::here("results", "common_end"), scales = "logit")$p1$logit
-```
-
-```{r}
-#| label: tbl-supplement-16-spread
-#| echo: false
-knitr::kable(
-  e_spread(resM[!resM$admin, ]), digits = 2, row.names = FALSE,
-  col.names = c("Conditioning on", "Mean difference between event rates", "Maximum difference", "Cells"),
-  caption = "Difference in $P(\\widehat{N}_* > N)$ between overall event rates (5% to 90%), given the conditioning variable (common end of follow-up, $C = 0.6$ to $0.9$). A smaller difference means that the conditioning variable organizes the results better."
-)
-```
-
-## Sensitivity analyses
-
-These analyses were run for the reference scenario ($C = 0.7$ unless stated otherwise) and varied one factor at a time. Estimands, methods and performance measures were as in Simulation 2.
-
-**Number of predictors and noise predictors.** $k = 1, 3, 10$ continuous and $k$ binary true predictors, with and without $k$ added predictors unrelated to the outcome ($N = 1000$, 90% of patients with an event, common end of follow-up; design `oat`).
-
-**Weibull shape.** The reference scenario with only the shape changed ($\gamma = 0.7, 1, 1.5$; design `shape_only`). The Cox model is invariant to monotone transformations of time, so the estimates, and hence $N_*$, are identical up to the calibration of the scale. The shape can only matter when the censoring distribution is tied to the time scale, as in the next analysis.
-
-**Random censoring.** Administrative censoring off or on, combined with random censoring (loss to follow-up, independent exponential) of intensity 0 (none), 1 (regular; 10% of patients lost by the maximum follow-up if no event occurs first) or 5 (severe; five times the hazard of loss), at overall event rates of 10%, 30% and 60% and $C = 0.7$ (design `censoring`).
-
-```{r}
-#| label: sim-supplement-16-sens-run
-#| include: false
-cache1 <- here::here("results", "sim_guardrails.rds")
-if (file.exists(cache1)) {
-  res16 <- readRDS(cache1)
-} else {
-  res16 <- run_all(make_scen("oat"))
-  saveRDS(res16, cache1)
-}
-cacheS <- here::here("results", "sim_guardrails_shape.rds")
-if (file.exists(cacheS)) {
-  res16c <- readRDS(cacheS)
-} else {
-  res16c <- run_all(make_scen("shape_only"))
-  saveRDS(res16c, cacheS)
-}
-cacheC <- here::here("results", "sim_guardrails_cens.rds")
-if (file.exists(cacheC)) {
-  resC <- readRDS(cacheC)
-} else {
-  resC <- run_all(make_scen("censoring"))
-  saveRDS(resC, cacheC)
-}
-pl16 <- plot_sim(res16, here::here("results"))
-pl16c <- plot_shape(res16c, here::here("results"))
-plC <- plot_cens(resC, here::here("results"))
-```
-
-```{r}
-#| label: fig-supplement-16-settings
-#| echo: false
-#| fig-cap: "Percentage of predictions with $\\widehat{N}_* > N$ against the true survival (logit scale) for different numbers of predictors ($k$ continuous and $k$ binary) and with $k$ added noise predictors, for $C = 0.7$ and $C = 0.8$ and selected fractions of events observed."
-pl16$p3$logit
-```
-
-```{r}
-#| label: tbl-supplement-16-shape
-#| echo: false
-knitr::kable(
-  factor_effect(res16c, "shape"), digits = 3, row.names = FALSE,
-  col.names = c("Weibull shape", "Overall event rate", "Mean absolute difference", "Maximum absolute difference", "Cells"),
-  caption = "Difference in $P(\\widehat{N}_* > N)$ between each Weibull shape and shape 1, over cells of time point and band of true survival."
-)
-```
-
-```{r}
-#| label: fig-supplement-16-shape
-#| echo: false
-#| fig-cap: "Percentage of predictions with $\\widehat{N}_* > N$ against the true survival (logit scale) for Weibull shapes 0.7, 1 and 1.5, by fraction of events observed. All other settings are identical."
-pl16c$p1$logit
-```
-
-```{r}
-#| label: fig-supplement-16-cens
-#| echo: false
-#| fig-cap: "Percentage of predictions with $\\widehat{N}_* > N$ against the true survival (logit scale) under registry-style censoring: administrative censoring off or on, and random censoring of intensity 0, 1 and 5 ($C = 0.7$). Rows: overall proportion of patients with an event; columns: fraction of events observed."
-plC$p1$logit
-```
-
-```{r}
-#| label: fig-supplement-16-cens-coverage
-#| echo: false
-#| fig-cap: "Coverage of the 95% log-log confidence interval under registry-style censoring (as in the previous figure), pooled over time points."
-plC$p2$logit
-```
-
-
-# Supplement 17: Effective sample size from a bootstrapped variance
-
-The effective sample size $N_*$ in the main text uses the delta-method variance of the Cox model survival estimate (Equation 2 of the main text). Any other variance estimator can be used in its place. Here we compare the delta-method variance with the bootstrap variance for the colon cancer data, using both a non-parametric and a parametric bootstrap, to check that the effective sample size does not depend on the variance estimator.
-
-## Methods
-
-We used the colon cancer data of the main text (overall survival, 929 patients; number of positive nodes imputed once, as for Figure 3) and the four sequential Cox models of Section 3.3: (A) treatment; (B) treatment and adherence; (C) treatment, adherence and nodes; (D) treatment, adherence, nodes and age. For each model, survival was predicted for every patient in the development data at 1 to 7 years. The delta-method variance of $\widehat{S}(t \mid x)$ was taken from `survfit()` as in the main text.
-
-For the bootstrap variance, $B = 1000$ bootstrap samples were generated in one of two ways. In the non-parametric bootstrap the 929 patients were drawn with replacement. In the parametric bootstrap [@thomassen2025] the covariates of the 929 patients were kept and new outcomes were simulated from the Cox model fitted to the original data: event times were drawn from the fitted model with the Breslow estimate of the baseline hazard, and censoring times from the Kaplan-Meier estimate of the censoring distribution, independently of the covariates. In each bootstrap sample the same Cox model was refitted (Efron ties), the cumulative baseline hazard was estimated, and the survival probability was predicted for the *original* patients' covariate values. The bootstrap variance of $\widehat{S}(t \mid x)$ is the variance of these predictions over the bootstrap samples. For both variances the effective sample size is
-
-$$N_* = \frac{\widehat{S}(1 - \widehat{S})}{V(\widehat{S})},$$
-
-with $\widehat{S}$ the estimate from the original fit, so that the two estimates differ only in the variance. We compare them per patient and horizon by the ratio $N_*^{\text{boot}} / N_*^{\text{delta}}$ (summarised in the table). The Monte Carlo error of a variance estimated from $B = 1000$ samples is about $\sqrt{2/(B-1)} = 4.5\%$ (relative), so ratios within about $\pm 10\%$ of 1 are indistinguishable from this error. Neither bootstrap repeats the imputation of the number of nodes, so, like the delta-method variance, both are conditional on the model specification and the imputed data. The parametric bootstrap additionally assumes that the fitted Cox model and an independent censoring distribution describe the data.
-
-```{r}
-#| label: sim-supplement-17-run
-#| include: false
-source(here::here("code", "compile.R"))
+#| label: s11-prep
 source(here::here("code", "bootstrap_ess.R"))
-cacheB <- here::here("results", "ess_bootstrap_colon.rds")
-if (file.exists(cacheB)) {
-  resB <- readRDS(cacheB)
-} else {
-  resB <- run_colon_bootstrap(years = 1:7, B = 1000)
-  dir.create(dirname(cacheB), showWarnings = FALSE, recursive = TRUE)
-  saveRDS(resB, cacheB)
-}
+resB <- load_res("ess_bootstrap_colon.rds")
 smB <- summarise_boot(resB)
+ratio5 <- function( type, model ) smB$ratio_med[smB$type == type & smB$year == 5 & smB$model == names(colon_forms)[model]]
+ab <- smB$ratio_med[smB$model %in% names(colon_forms)[1:2]]
 ```
 
-## Results
+The effective sample size $N_*$ in the article uses the delta-method variance of the Cox model survival estimate (Equation 2 of the article). Any other variance estimator can be used instead. Here we compared the delta-method variance with the bootstrap variance in the colon data, using both a non-parametric and a parametric bootstrap.
+
+We used the colon data of the article (overall survival, `r n_pat` patients, with the number of positive nodes imputed once, as for Figure 3) and the four sequential Cox models of Section 3.3: (A) treatment; (B) treatment and adherence; (C) treatment, adherence and nodes; and (D) treatment, adherence, nodes and age. For each model, we predicted the survival of every patient in the data at 1 to 7 years. The delta-method variance of $\widehat{S}(t \mid \mathbf{x})$ was taken from `survfit()` as in the article.
+
+We generated $B = 1000$ bootstrap samples in one of two ways. In the non-parametric bootstrap we drew the `r n_pat` patients with replacement. In the parametric bootstrap[@thomassen2025] we kept the covariates of the `r n_pat` patients and simulated new outcomes from the Cox model fitted to the original data: event times were drawn from the fitted model with the Breslow estimate of the baseline hazard, and censoring times from the Kaplan-Meier estimate of the censoring distribution, independent of the covariates. In each bootstrap sample we refitted the same Cox model (Efron ties), estimated the cumulative baseline hazard, and predicted the survival for the covariate values of the *original* patients. The bootstrap variance of $\widehat{S}(t \mid \mathbf{x})$ was the variance of these predictions over the bootstrap samples. For both variances the effective sample size was
+
+$$N_* = \frac{\widehat{S}(t \mid \mathbf{x})(1 - \widehat{S}(t \mid \mathbf{x}))}{V(\widehat{S}(t \mid \mathbf{x}))},$$
+
+with $\widehat{S}(t \mid \mathbf{x})$ the estimate from the original fit, so that the two estimates only differed in the variance. We compared them per patient and horizon by the ratio $N_*^{\text{boot}} / N_*^{\text{delta}}$. The Monte Carlo error of a variance estimated from $B = 1000$ samples was about $\sqrt{2/(B-1)} = 4.5\%$ (relative), so ratios within about $\pm 10\%$ of 1 could not be distinguished from this error. Neither bootstrap repeated the imputation of the number of nodes, so, like the delta-method variance, both were conditional on the model specification and the imputed data. The parametric bootstrap additionally assumed that the fitted Cox model and an independent censoring distribution described the data.
+
+The two bootstraps and the delta-method variance gave similar effective sample sizes (Figures S11.1 and S11.2). For models A and B, which only contain the binary treatment and adherence variables, the patients formed a few groups and the median ratio of the estimates was between `r f2(min(ab))` and `r f2(max(ab))` at all horizons. For models C and D, the bootstrap estimates followed the line of equality over most of the range. At 5 years, the median ratio $N_*^{\text{boot}} / N_*^{\text{delta}}$ in models C and D was `r f2(ratio5("nonparametric", 3))` and `r f2(ratio5("nonparametric", 4))` for the non-parametric bootstrap, and `r f2(ratio5("parametric", 3))` and `r f2(ratio5("parametric", 4))` for the parametric bootstrap. The non-parametric bootstrap tended to estimate lower values than the delta-method variance for patients with a low effective sample size, which are patients with less common covariate values. The parametric bootstrap lay closer to the delta-method estimate. A few patients with a high delta-method $N_*$ had a much lower bootstrap $N_*$ in models C and D, with both bootstrap methods.
 
 ```{r}
-#| label: fig-supplement-17-scatter-np
-#| echo: false
-#| fig-cap: "Effective sample size from the non-parametric bootstrap variance against effective sample size from the delta-method variance for all 929 patients, at 5 years, for the four models of Figure 3 (log-log scale). Dashed line: equality."
+#| label: s11-fig-np
+#| fig-cap: "Figure S11.1. Effective sample size from the non-parametric bootstrap variance against the effective sample size from the delta-method variance for all patients, at 5 years, for the four models of Figure 3 (log-log scale). Dashed line: equality."
+#| fig-width: 6
+#| fig-height: 5.5
 plot_boot_scatter(resB, year = 5, type = "nonparametric")
 ```
 
 ```{r}
-#| label: fig-supplement-17-scatter-p
-#| echo: false
-#| fig-cap: "As Figure S17.1, with the variance from the parametric bootstrap."
+#| label: s11-fig-p
+#| fig-cap: "Figure S11.2. As Figure S11.1, with the variance estimated from the parametric bootstrap."
+#| fig-width: 6
+#| fig-height: 5.5
 plot_boot_scatter(resB, year = 5, type = "parametric")
 ```
 
-The two bootstraps and the delta-method variance give similar effective sample sizes (Figures S17.1 and S17.2). For models A and B, which contain only the binary treatment and adherence variables, the patients form a few groups and the estimates coincide. For models C and D, the bootstrap estimates follow the line of equality over most of the range, with the non-parametric bootstrap tending to give somewhat lower values than the delta-method variance for patients with a low effective sample size, i.e. patients with less common covariate values. The parametric bootstrap lies closer to the delta-method estimate. A few patients with a high delta-method $N_*$ have a much lower bootstrap $N_*$ in models C and D, in both bootstraps.
+{{< pagebreak >}}
+
+# Supplement 12: Other results
+
+We here list some further results to support the reasoning in the main text. The first two results concern effective sample size in linear and logistic regression, which the article takes from earlier work; the third compares the Cox models of Figure 3 with models stratified by treatment.
+
+```{r}
+#| label: s12-prep
+source(here::here("code", "other_results.R"))
+oth <- load_res("other_results.rds")
+lin <- oth$lin
+logi <- oth$logi
+```
+
+**Mean patient in linear regression.** In a linear regression model, a patient with the mean value of all predictors has an effective sample size equal to the development sample size. We showed this in a subset of the GUSTO data (`r oth$n_gusto` patients), with a linear model for the `day30` outcome based on age and height (centered). Following Thomassen et al.,[@thomassen2024] the effective sample size of a new patient with covariate vector $\mathbf{x}$ is $1 / \mathbf{x}^\top (X^\top X)^{-1} \mathbf{x}$. For a patient with the mean age and height this was `r round(oth$mean_patient)`, equal to the development sample size.
+
+**Subgroup size as a bound in linear, but not in logistic regression.** In a linear model with a continuous and a categorical predictor, the effective sample size is bounded by the number of patients in the same category. We illustrated this with a linear model for height based on age and sex in the same data, which contained `r oth$n_women` women. For a woman with the mean age of all patients the effective sample size was `r round(lin["pop_age"])`, below the number of women. For a woman with the mean age of the women it equalled `r round(lin["women_age"])`, the number of women. In logistic regression for `day30` on age and sex, this bound did not hold. Without an interaction, the effective sample size was higher for a woman with the mean age of the population (`r round(logi$pop_age[1])`) than for a woman with the mean age of the women (`r round(logi$women_age[1])`), and the first exceeded the number of women. With an age by sex interaction, the effective sample sizes dropped to `r round(logi$pop_age[2])` and `r round(logi$women_age[2])`, and the order was the same as in linear regression: the woman with the mean age of the women had the higher effective sample size. A model that shares information across subgroups (here through the common age effect) can therefore have a higher effective sample size than the subgroup contains. This is the same mechanism as in the Cox model, where the baseline hazard and coefficients are estimated from all patients.
+
+**Stratified Cox models.** Figure S12.1 repeats Figure 3 of the article with treatment as a stratification variable, which gives each treatment its own baseline hazard, instead of a hazard ratio for treatment. For the model with only treatment, the predictions were identical to the Kaplan-Meier estimates by treatment group. At 5 years, the stratified models gave effective sample sizes similar to those of the models of Figure 3, and slightly lower numbers in the models with more predictors (median `r round(median(oth$strat$n.eff[oth$strat$stratified & oth$strat$model == "D"]))` versus `r round(median(oth$strat$n.eff[!oth$strat$stratified & oth$strat$model == "D"]))` in the full model).
+
+```{r}
+#| label: s12-fig-strat
+#| fig-cap: "Figure S12.1. Effective sample size of the 5-year survival prediction of all patients in the colon data against the predicted survival probability, for Cox models with treatment as covariate (purple) and stratified by treatment (yellow). (A) treatment only; (B) adds adhesion; (C) adds nodes; (D) adds age."
+#| fig-width: 8
+#| fig-height: 6.5
+plot_strat(oth)
+```
+
+{{< pagebreak >}}
+
+# References
+
+::: {#refs}
+:::
